@@ -40,7 +40,7 @@ DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
     'DClaw3': 200,
-    'ImageDClaw3': 200,
+    'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
 }
 
@@ -78,13 +78,15 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Walker': int(3e3),
     'Ant': int(3e3),
     'Humanoid': int(1e4),
-    'Pusher2d': int(2e3),
+    'Pusher2d': int(1e3),
     'HandManipulatePen': int(1e4),
     'HandManipulateEgg': int(1e4),
     'HandManipulateBlock': int(1e4),
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
+    'DClaw3': int(100),
+    'ImageDClaw3': int(400),
     'HardwareDClaw3': int(100),
 }
 
@@ -115,6 +117,12 @@ class NegativeLogLossFn(object):
 
     def __str__(self):
         return str(f'eps={self._eps:e}')
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self._eps == other._eps
+
+        return super(NegativeLogLossFn, self).__eq__(other)
 
 
 ENV_PARAMS = {
@@ -168,7 +176,7 @@ ENV_PARAMS = {
     },
     'DClaw3': {
         'ScrewV2': {
-            'object_target_distance_cost_coeff': 2.0,
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'pose_difference_cost_coeff': 0.0,
             'joint_velocity_cost_coeff': 0.0,
             'joint_acceleration_cost_coeff': tune.grid_search([0]),
@@ -181,7 +189,7 @@ ENV_PARAMS = {
     'ImageDClaw3': {
         'Screw': {
             'image_shape': (32, 32, 3),
-            'object_target_distance_cost_coeff': 2.0,
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'pose_difference_cost_coeff': 0.0,
             'joint_velocity_cost_coeff': 0.0,
             'joint_acceleration_cost_coeff': tune.grid_search([0]),
