@@ -39,6 +39,9 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
+    'DClaw3': 200,
+    'ImageDClaw3': 200,
+    'HardwareDClaw3': 100,
 }
 
 ALGORITHM_PARAMS_BASE = {
@@ -82,6 +85,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
+    'HardwareDClaw3': int(100),
 }
 
 ALGORITHM_PARAMS_PER_DOMAIN = {
@@ -98,6 +102,20 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
 }
+
+
+class NegativeLogLossFn(object):
+    def __init__(self, eps):
+        self._eps = eps
+
+    def __call__(self, object_target_distance):
+        return (
+            - np.log(object_target_distance + self._eps)
+            + np.log(np.pi + self._eps))
+
+    def __str__(self):
+        return str(f'eps={self._eps:e}')
+
 
 ENV_PARAMS = {
     'Swimmer': {  # 2 DoF
@@ -148,6 +166,54 @@ ENV_PARAMS = {
             'arm_object_distance_cost_coeff': 0.0,
         }
     },
+    'DClaw3': {
+        'ScrewV2': {
+            'object_target_distance_cost_coeff': 2.0,
+            'pose_difference_cost_coeff': 0.0,
+            'joint_velocity_cost_coeff': 0.0,
+            'joint_acceleration_cost_coeff': tune.grid_search([0]),
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+        }
+    },
+    'ImageDClaw3': {
+        'Screw': {
+            'image_shape': (32, 32, 3),
+            'object_target_distance_cost_coeff': 2.0,
+            'pose_difference_cost_coeff': 0.0,
+            'joint_velocity_cost_coeff': 0.0,
+            'joint_acceleration_cost_coeff': tune.grid_search([0]),
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+        }
+    },
+    'HardwareDClaw3': {
+        'ScrewV2': {
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-1.98, -1.98 + 2 * np.pi),
+        },
+        'ImageScrewV2': {
+            'image_shape': (32, 32, 3),
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-1.98, -1.98 + 2 * np.pi),
+        },
+    },
     'Point2DEnv': {
         'Default': {
             'observation_keys': ('observation', ),
@@ -186,7 +252,7 @@ def get_variant_spec(universe, domain, task, policy):
         'replay_pool_params': {
             'type': 'SimpleReplayPool',
             'kwargs': {
-                'max_size': 1e6,
+                'max_size': 5e5,
             }
         },
         'sampler_params': {
@@ -194,16 +260,23 @@ def get_variant_spec(universe, domain, task, policy):
             'kwargs': {
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
-                'min_pool_size': MAX_PATH_LENGTH_PER_DOMAIN.get(
-                    domain, DEFAULT_MAX_PATH_LENGTH),
+                'min_pool_size': 1000,
+                # MAX_PATH_LENGTH_PER_DOMAIN.get(
+                #     domain, DEFAULT_MAX_PATH_LENGTH),
                 'batch_size': 256,
             }
         },
         'run_params': {
             'seed': lambda spec: np.random.randint(0, 10000),
             'checkpoint_at_end': True,
-            'checkpoint_frequency': NUM_EPOCHS_PER_DOMAIN.get(
-                domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
+            'checkpoint_frequency': lambda spec: (
+                25000 // (spec.get('config', spec)
+                          ['algorithm_params']
+                          ['kwargs']
+                          ['epoch_length'])
+            ),
+            # NUM_EPOCHS_PER_DOMAIN.get(
+            #     domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
         },
     }
 
@@ -228,9 +301,12 @@ def get_variant_spec_image(universe, domain, task, policy, *args, **kwargs):
                 'dense_hidden_layer_sizes': (),
             },
         }
+        variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
+
         variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
+        variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
 
     return variant_spec

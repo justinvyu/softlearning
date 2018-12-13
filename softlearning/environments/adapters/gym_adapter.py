@@ -33,6 +33,16 @@ def raise_on_use_wrapper(e):
     return raise_on_use
 
 
+try:
+    from sac_envs.envs.dclaw.dclaw3_screw_v2 import DClaw3ScrewV2
+    from sac_envs.envs.dclaw.dclaw3_screw_v2 import ImageDClaw3Screw
+    from sac_envs.envs.dclaw.dclaw3_flip_v1 import DClaw3FlipV1
+except ModuleNotFoundError as e:
+    DClaw3FlipV1 = raise_on_use_wrapper(e)
+    DClaw3ScrewV2 = raise_on_use_wrapper(e)
+    ImageDClaw3Screw = raise_on_use_wrapper(e)
+
+
 GYM_ENVIRONMENTS = {
     'Swimmer': {
         'v2': lambda: gym.envs.make('Swimmer-v2'),
@@ -110,6 +120,52 @@ GYM_ENVIRONMENTS = {
     },
     'MultiGoal': {
         'Default': MultiGoalEnv
+    },
+    'DClaw3': {
+        'ScrewV2': DClaw3ScrewV2,
+        'FlipV1': DClaw3FlipV1,
+    },
+    'ImageDClaw3': {
+        'Screw': ImageDClaw3Screw,
+    },
+    'HardwareDClaw3': {
+        'ScrewV2': lambda *args, **kwargs: (
+            DClaw3ScrewV2(
+                *args,
+                is_hardware=True,
+                pose_difference_cost_coeff=kwargs.pop(
+                    'pose_difference_cost_coeff', 0),
+                joint_velocity_cost_coeff=kwargs.pop(
+                    'joint_velocity_cost_coeff', 0),
+                joint_acceleration_cost_coeff=kwargs.pop(
+                    'joint_acceleration_cost_coeff', 0),
+                target_initial_position_range=kwargs.pop(
+                    'target_initial_position_range', (np.pi, np.pi)),
+                object_initial_position_range=kwargs.pop(
+                    'object_initial_position_range', (0, 0)),
+                frame_skip=kwargs.pop('frame_skip', 30),
+                **kwargs)),
+        'ImageScrewV2': lambda *args, **kwargs: (
+            ImageDClaw3Screw(
+                *args,
+                is_hardware=True,
+                pose_difference_cost_coeff=kwargs.pop(
+                    'pose_difference_cost_coeff', 0),
+                joint_velocity_cost_coeff=kwargs.pop(
+                    'joint_velocity_cost_coeff', 0),
+                joint_acceleration_cost_coeff=kwargs.pop(
+                    'joint_acceleration_cost_coeff', 0),
+                target_initial_position_range=kwargs.pop(
+                    'target_initial_position_range', (np.pi, np.pi)),
+                object_initial_position_range=kwargs.pop(
+                    'object_initial_position_range', (-np.pi, np.pi)),
+                frame_skip=kwargs.pop('frame_skip', 30),
+                **kwargs)),
+        'FlipV1': lambda *args, **kwargs: (
+            DClaw3FlipV1(
+                *args,
+                is_hardware=True,
+                **kwargs)),
     },
 }
 
