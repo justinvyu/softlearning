@@ -137,14 +137,22 @@ class GymAdapter(SoftlearningEnv):
         # observation = OrderedDict()
         # observation['observation'] = env.step(action, *args, **kwargs)
         # return observation
-
-        return self._env.step(action, *args, **kwargs)
+        try:
+            return self._env.step(action, *args, **kwargs)
+        except:
+            return self._env._step(action, *args, **kwargs)
 
     def reset(self, *args, **kwargs):
-        return self._env.reset(*args, **kwargs)
+        try:
+            return self._env.reset(*args, **kwargs)
+        except:
+            return self._env.reset_model(*args, **kwargs)
 
     def render(self, *args, **kwargs):
-        return self._env.render(*args, **kwargs)
+        try:
+            return self._env.render(*args, **kwargs)
+        except:
+            return self._env.mj_render()
 
     def close(self, *args, **kwargs):
         return self._env.close(*args, **kwargs)

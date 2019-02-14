@@ -52,7 +52,7 @@ ALGORITHM_PARAMS_BASE = {
         'train_every_n_steps': 1,
         'n_train_repeat': 1,
         'eval_render_mode': None,
-        'eval_n_episodes': 1,
+        'eval_n_episodes': 3, # num of eval rollouts
         'eval_deterministic': True,
 
         'discount': 0.99,
@@ -74,6 +74,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(1e3),
+            'her_iters': 0,
         }
     },
     'SQL': {
@@ -140,6 +141,10 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
     }
 }
 
+ALGORITHM_PARAMS_PER_DOMAIN['DClaw3']['kwargs'].update({
+    'her_iters': 0,
+    # 'goal_classifier_params_direc': '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train/params.ckpt',
+})
 
 class NegativeLogLossFn(object):
     def __init__(self, eps, offset=0.0):
@@ -276,10 +281,71 @@ ENVIRONMENT_PARAMS = {
         'Wall-v0': {
             'observation_keys': ('observation', 'desired_goal'),
         },
+    },
+    'DClaw3': {
+        'ScrewV0': {  # 6 DoF
+            'isHARDARE': False,
+        },
+        'ScrewV2': {
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (0, 0), #(-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (np.pi, np.pi), # (-np.pi, np.pi),
+            'reset_free': False,
+        },
+        'ImageScrewV2': {
+            'is_hardware': False,
+            'image_shape': (32, 32, 3),
+            'reset_free': True,
+            'goal_in_state': True,
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+        }
+    },
+    'HardwareDClaw3': {
+        'ScrewV2': {
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+        },
+        'ImageScrewV2': {
+            'image_shape': (32, 32, 3),
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+            'hw_w_sim_imgs': True,
+        },
     }
 }
 
 NUM_CHECKPOINTS = 10
+SAMPLER_PARAMS_PER_DOMAIN = {
+    'DClaw3': {
+        'type': 'SimpleSampler',
+    },
+    'HardwareDClaw3': {
+        'type': 'RemoteSampler',
+    }
+}
 
 
 def get_variant_spec_base(universe, domain, task, policy, algorithm):
@@ -334,8 +400,8 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
                 )),
             }
         },
-        'sampler_params': {
-            'type': 'SimpleSampler',
+        'sampler_params': deep_update({
+            'type': 'RemoteSampler', #'SimpleSampler',
             'kwargs': {
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
@@ -344,7 +410,7 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
                 #     domain, DEFAULT_MAX_PATH_LENGTH),
                 'batch_size': 256,
             }
-        },
+        }, SAMPLER_PARAMS_PER_DOMAIN.get(domain, {})),
         'run_params': {
             'seed': tune.sample_from(
                 lambda spec: np.random.randint(0, 10000)),

@@ -42,7 +42,8 @@ class SAC(RLAlgorithm):
             action_prior='uniform',
             reparameterize=False,
             store_extra_policy_info=False,
-
+            her_iters=0,
+            goal_classifier_params_direc=None,
             save_full_state=False,
             **kwargs,
     ):
@@ -98,6 +99,9 @@ class SAC(RLAlgorithm):
         self._reparameterize = reparameterize
         self._store_extra_policy_info = store_extra_policy_info
 
+        self._her_iters = her_iters
+        self._base_env = env._env.env
+
         self._save_full_state = save_full_state
 
         observation_shape = self._training_environment.active_observation_shape
@@ -108,11 +112,15 @@ class SAC(RLAlgorithm):
         assert len(action_shape) == 1, action_shape
         self._action_shape = action_shape
 
-        self._build()
+        self._build(goal_classifier_params_direc)
 
-    def _build(self):
+    def _build(self, goal_classifier_params_direc):
         self._training_ops = {}
 
+        if goal_classifier_params_direc:
+            self._load_goal_classifier(goal_classifier_params_direc)
+        else:
+            self._goal_classifier = None
         self._init_global_step()
         self._init_placeholders()
         self._init_actor_update()
@@ -182,6 +190,38 @@ class SAC(RLAlgorithm):
                 shape=(None, *self._action_shape),
                 name='raw_actions',
             )
+    def _load_goal_classifier(self, goal_classifier_params_direc):
+        import sys
+        # import ipdb; ipdb.set_trace()
+        from goal_classifier.conv import CNN
+        # tf.reset_default_graph()
+        # with tf.Graph().as_default() as g:
+        #     with g.name_scope('goal_classifier') as scope:
+        from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
+        print_tensors_in_checkpoint_file(goal_classifier_params_direc, all_tensors=False, tensor_name='')
+        # with tf.variable_scope('goal_classifier'):
+        self._goal_classifier = CNN(goal_cond=True)
+        variables = self._goal_classifier.get_variables()
+        # cnn_vars = [v for v in tf.trainable_variables() if v.name.split('/')[0] == 'goal_classifier']
+        import ipdb; ipdb.set_trace()
+        saver = tf.train.Saver(cnn_vars)
+        saver.restore(self._session, goal_classifier_params_direc)
+        # with tf.Graph().as_default():
+        #     saver = tf.train.Saver()
+        #     # saver = tf.train.import_meta_graph('/tmp/foo.meta')
+        #     with self._session as sess:
+        #       # saver.restore(sess, tf.train.latest_checkpoint('/tmp'))
+
+              # graph = tf.get_default_graph()
+              # print(graph.get_tensor_by_name("W_conv1:0"))
+
+        # tf.trainable_variables()
+
+    def _classify_as_goals(self, observations):
+        feed_dict = {self._goal_classifier.images: observations[:,:-1],
+            self._goal_classifier.goals: observations[:,-1]}
+        goal_probs = self._session.run(self._goal_classifier.pred_probs, feed_dict=feed_dict)
+        return goal_probs
 
     def _get_Q_target(self):
         next_actions = self._policy.actions([self._next_observations_ph])
@@ -340,10 +380,14 @@ class SAC(RLAlgorithm):
 
     def _do_training(self, iteration, batch):
         """Runs the operations for updating training and target ops."""
-
         feed_dict = self._get_feed_dict(iteration, batch)
-
         self._session.run(self._training_ops, feed_dict)
+        if self._her_iters:
+            new_batches = {}
+            for _ in range(self._her_iters):
+                new_batch = self._get_goal_resamp_batch(batch)
+                new_feed_dict = self._get_feed_dict(iteration, new_batch)
+                self._session.run(self._training_ops, new_feed_dict)
 
         if iteration % self._target_update_interval == 0:
             # Run target ops here.
@@ -351,14 +395,16 @@ class SAC(RLAlgorithm):
 
     def _get_feed_dict(self, iteration, batch):
         """Construct TensorFlow feed_dict from sample batch."""
-
         feed_dict = {
             self._observations_ph: batch['observations'],
             self._actions_ph: batch['actions'],
             self._next_observations_ph: batch['next_observations'],
-            self._rewards_ph: batch['rewards'],
             self._terminals_ph: batch['terminals'],
         }
+        if self._goal_classifier:
+            feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])
+        else:
+            feed_dict[self._rewards_ph] = batch['rewards']
 
         if self._store_extra_policy_info:
             feed_dict[self._log_pis_ph] = batch['log_pis']
@@ -368,6 +414,29 @@ class SAC(RLAlgorithm):
             feed_dict[self._iteration_ph] = iteration
 
         return feed_dict
+
+    def _get_goal_resamp_batch(self, batch):
+        new_goal = self._base_env.sample_goal()
+        old_goal = self._base_env.get_goal()
+        batch_obs = batch['observations']
+        batch_act = batch['actions']
+        batch_next_obs = batch['next_observations']
+
+        new_batch_obs = self._base_env.relabel_obs_w_goal(batch_obs, new_goal)
+        self._base_env.set_goal(new_goal)
+        new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
+        self._base_env.set_goal(old_goal)
+        new_batch_next_obs = self._base_env.relabel_obs_w_goal(batch_next_obs, new_goal)
+
+        new_batch = {
+            'rewards': new_batch_rew,
+            'observations': new_batch_obs,
+            'actions': batch['actions'],
+            'next_observations': new_batch_next_obs,
+            'terminals': batch['terminals'],
+        }
+        # (TODO) Implement relabeling of terminal flags
+        return new_batch
 
     def get_diagnostics(self,
                         iteration,
