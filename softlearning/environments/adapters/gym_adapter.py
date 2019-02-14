@@ -4,170 +4,38 @@ import numpy as np
 import gym
 from gym import spaces, wrappers
 
-from multiworld.envs.pygame.point2d import Point2DEnv, Point2DWallEnv
-
 from .softlearning_env import SoftlearningEnv
+from softlearning.environments.gym import register_environments
 from softlearning.environments.gym.wrappers import NormalizeActionWrapper
-from softlearning.environments.gym.mujoco.ant_env import AntEnv as CustomAntEnv
-from softlearning.environments.gym.mujoco.humanoid_env import (
-    HumanoidEnv as CustomHumanoidEnv)
-from softlearning.environments.gym.mujoco.walker2d_env import (
-    Walker2dEnv as CustomWalker2dEnv)
-from softlearning.environments.gym.mujoco.hopper_env import (
-    HopperEnv as CustomHopperEnv)
-from softlearning.environments.gym.mujoco.swimmer_env import (
-    SwimmerEnv as CustomSwimmerEnv)
-from softlearning.environments.gym.mujoco.pusher_2d_env import (
-    Pusher2dEnv,
-    ForkReacherEnv)
-from softlearning.environments.gym.mujoco.image_pusher import (
-    ImagePusherEnv,
-    ImageForkReacherEnv,
-    BlindForkReacherEnv)
-from softlearning.environments.gym.multi_goal import MultiGoalEnv
+from collections import defaultdict
 
 
-def raise_on_use_wrapper(e):
-    def raise_on_use(*args, **kwargs):
-        raise e
-    return raise_on_use
+def parse_domain_task(gym_id):
+    domain_task_parts = gym_id.split('-')
+    domain = '-'.join(domain_task_parts[:1])
+    task = '-'.join(domain_task_parts[1:])
+
+    return domain, task
 
 
-try:
-    from sac_envs.envs.dclaw.dclaw3_screw_v2 import DClaw3ScrewV2
-    from sac_envs.envs.dclaw.dclaw3_screw_v2 import ImageDClaw3Screw
-    from sac_envs.envs.dclaw.dclaw3_flip_v1 import DClaw3FlipV1
-except ModuleNotFoundError as e:
-    DClaw3FlipV1 = raise_on_use_wrapper(e)
-    DClaw3ScrewV2 = raise_on_use_wrapper(e)
-    ImageDClaw3Screw = raise_on_use_wrapper(e)
+CUSTOM_GYM_ENVIRONMENT_IDS = register_environments()
+CUSTOM_GYM_ENVIRONMENTS = defaultdict(list)
+
+for gym_id in CUSTOM_GYM_ENVIRONMENT_IDS:
+    domain, task = parse_domain_task(gym_id)
+    CUSTOM_GYM_ENVIRONMENTS[domain].append(task)
+
+CUSTOM_GYM_ENVIRONMENTS = dict(CUSTOM_GYM_ENVIRONMENTS)
+
+GYM_ENVIRONMENT_IDS = tuple(gym.envs.registry.env_specs.keys())
+GYM_ENVIRONMENTS = defaultdict(list)
 
 
-GYM_ENVIRONMENTS = {
-    'Swimmer': {
-        'v2': lambda: gym.envs.make('Swimmer-v2'),
-        'CustomDefault': CustomSwimmerEnv,
-        'Default': lambda: gym.envs.make('Swimmer-v2'),
-    },
-    'Ant': {
-        'v2': lambda: gym.envs.make('Ant-v2'),
-        'Custom': CustomAntEnv,
-        'Default': lambda: gym.envs.make('Ant-v2'),
-    },
-    'Humanoid': {
-        'v2': lambda: gym.envs.make('Humanoid-v2'),
-        'Standup-v2': lambda: gym.envs.make('HumanoidStandup-v2'),
-        'Custom': CustomHumanoidEnv,
-        'Default': lambda: gym.envs.make('Humanoid-v2'),
-    },
-    'Hopper': {
-        'v2': lambda: gym.envs.make('Hopper-v2'),
-        'Custom': CustomHopperEnv,
-        'Default': lambda: gym.envs.make('Hopper-v2'),
-    },
-    'HalfCheetah': {
-        'v2': lambda: gym.envs.make('HalfCheetah-v2'),
-        'Default': lambda: gym.envs.make('HalfCheetah-v2'),
-    },
-    'Walker': {
-        'v2': lambda: gym.envs.make('Walker2d-v2'),
-        'Custom': CustomWalker2dEnv,
-        'Default': lambda: gym.envs.make('Walker2d-v2'),
-    },
-    'Pusher2d': {
-        'Default': Pusher2dEnv,
-        'DefaultReach': ForkReacherEnv,
+for gym_id in GYM_ENVIRONMENT_IDS:
+    domain, task = parse_domain_task(gym_id)
+    GYM_ENVIRONMENTS[domain].append(task)
 
-        'ImageDefault': ImagePusherEnv,
-        'ImageReach': ImageForkReacherEnv,
-        'BlindReach': BlindForkReacherEnv,
-    },
-    'Point2DEnv': {
-        'Default': Point2DEnv,
-        'Wall': Point2DWallEnv,
-    },
-    'HandManipulatePen': {
-        'v0': lambda: gym.envs.make('HandManipulatePen-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulatePenDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulatePen-v0'),
-    },
-    'HandManipulateEgg': {
-        'v0': lambda: gym.envs.make('HandManipulateEgg-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulateEggDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulateEgg-v0'),
-    },
-    'HandManipulateBlock': {
-        'v0': lambda: gym.envs.make('HandManipulateBlock-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulateBlockDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulateBlock-v0'),
-    },
-    'HandReach': {
-        'v0': lambda: gym.envs.make('HandReach-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandReachDense-v0'),
-        'Default': lambda: gym.envs.make('HandReach-v0'),
-    },
-    'InvertedDoublePendulum': {
-        'Default': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
-        'v2': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
-    },
-    'Reacher': {
-        'Default': lambda: gym.envs.make('Reacher-v2'),
-        'v2': lambda: gym.envs.make('Reacher-v2'),
-    },
-    'InvertedPendulum': {
-        'Default': lambda: gym.envs.make('InvertedPendulum-v2'),
-        'v2': lambda: gym.envs.make('InvertedPendulum-v2'),
-    },
-    'MultiGoal': {
-        'Default': MultiGoalEnv
-    },
-    'DClaw3': {
-        'ScrewV2': DClaw3ScrewV2,
-        'FlipV1': DClaw3FlipV1,
-    },
-    'ImageDClaw3': {
-        'Screw': ImageDClaw3Screw,
-    },
-    'HardwareDClaw3': {
-        'ScrewV2': lambda *args, **kwargs: (
-            DClaw3ScrewV2(
-                *args,
-                is_hardware=True,
-                pose_difference_cost_coeff=kwargs.pop(
-                    'pose_difference_cost_coeff', 0),
-                joint_velocity_cost_coeff=kwargs.pop(
-                    'joint_velocity_cost_coeff', 0),
-                joint_acceleration_cost_coeff=kwargs.pop(
-                    'joint_acceleration_cost_coeff', 0),
-                target_initial_position_range=kwargs.pop(
-                    'target_initial_position_range', (np.pi, np.pi)),
-                object_initial_position_range=kwargs.pop(
-                    'object_initial_position_range', (0, 0)),
-                frame_skip=kwargs.pop('frame_skip', 30),
-                **kwargs)),
-        'ImageScrewV2': lambda *args, **kwargs: (
-            ImageDClaw3Screw(
-                *args,
-                is_hardware=True,
-                pose_difference_cost_coeff=kwargs.pop(
-                    'pose_difference_cost_coeff', 0),
-                joint_velocity_cost_coeff=kwargs.pop(
-                    'joint_velocity_cost_coeff', 0),
-                joint_acceleration_cost_coeff=kwargs.pop(
-                    'joint_acceleration_cost_coeff', 0),
-                target_initial_position_range=kwargs.pop(
-                    'target_initial_position_range', (np.pi, np.pi)),
-                object_initial_position_range=kwargs.pop(
-                    'object_initial_position_range', (-np.pi, np.pi)),
-                frame_skip=kwargs.pop('frame_skip', 30),
-                **kwargs)),
-        'FlipV1': lambda *args, **kwargs: (
-            DClaw3FlipV1(
-                *args,
-                is_hardware=True,
-                **kwargs)),
-    },
-}
+GYM_ENVIRONMENTS = dict(GYM_ENVIRONMENTS)
 
 
 class GymAdapter(SoftlearningEnv):
@@ -177,10 +45,14 @@ class GymAdapter(SoftlearningEnv):
                  domain,
                  task,
                  *args,
+                 env=None,
                  normalize=True,
                  observation_keys=None,
                  unwrap_time_limit=True,
                  **kwargs):
+        assert not args, (
+            "Gym environments don't support args. Use kwargs instead.")
+
         self.normalize = normalize
         self.observation_keys = observation_keys
         self.unwrap_time_limit = unwrap_time_limit
@@ -188,7 +60,12 @@ class GymAdapter(SoftlearningEnv):
         self._Serializable__initialize(locals())
         super(GymAdapter, self).__init__(domain, task, *args, **kwargs)
 
-        env = GYM_ENVIRONMENTS[domain][task](*args, **kwargs)
+        if env is None:
+            assert (domain is not None and task is not None), (domain, task)
+            env_id = f"{domain}-{task}"
+            env = gym.envs.make(env_id, **kwargs)
+        else:
+            assert domain is None and task is None, (domain, task)
 
         if isinstance(env, wrappers.TimeLimit) and unwrap_time_limit:
             # Remove the TimeLimit wrapper that sets 'done = True' when

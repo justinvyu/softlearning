@@ -8,7 +8,6 @@ REPARAMETERIZE = True
 
 NUM_COUPLING_LAYERS = 2
 
-
 GAUSSIAN_POLICY_PARAMS_BASE = {
     'type': 'GaussianPolicy',
     'kwargs': {
@@ -27,7 +26,6 @@ POLICY_PARAMS_BASE.update({
     'gaussian': POLICY_PARAMS_BASE['GaussianPolicy'],
 })
 
-
 POLICY_PARAMS_FOR_DOMAIN = {
     'GaussianPolicy': GAUSSIAN_POLICY_PARAMS_FOR_DOMAIN,
 }
@@ -42,6 +40,7 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'DClaw3': 200,
     'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
+    'Pendulum': 200,
 }
 
 ALGORITHM_PARAMS_BASE = {
@@ -51,21 +50,48 @@ ALGORITHM_PARAMS_BASE = {
         'epoch_length': 1000,
         'train_every_n_steps': 1,
         'n_train_repeat': 1,
-        'n_initial_exploration_steps': int(1e3),
-        'reparameterize': REPARAMETERIZE,
         'eval_render_mode': None,
         'eval_n_episodes': 1,
         'eval_deterministic': True,
 
-        'lr': 3e-4,
         'discount': 0.99,
-        'target_update_interval': 1,
-        'tau': 0.005,
-        'target_entropy': 'auto',
+        'tau': 5e-3,
         'reward_scale': 1.0,
-        'store_extra_policy_info': False,
-        'action_prior': 'uniform',
-        'save_full_state': False,
+    }
+}
+
+
+ALGORITHM_PARAMS_ADDITIONAL = {
+    'SAC': {
+        'type': 'SAC',
+        'kwargs': {
+            'reparameterize': REPARAMETERIZE,
+            'lr': 3e-4,
+            'target_update_interval': 1,
+            'tau': 5e-3,
+            'target_entropy': 'auto',
+            'store_extra_policy_info': False,
+            'action_prior': 'uniform',
+            'n_initial_exploration_steps': int(1e3),
+        }
+    },
+    'SQL': {
+        'type': 'SQL',
+        'kwargs': {
+            'policy_lr': 3e-4,
+            'td_target_update_interval': 1,
+            'n_initial_exploration_steps': int(1e3),
+            'reward_scale': tune.sample_from(lambda spec: (
+                {
+                    'Swimmer': 30,
+                    'Hopper': 30,
+                    'HalfCheetah': 30,
+                    'Walker2d': 10,
+                    'Ant': 300,
+                    'Humanoid': 100,
+                }[spec.get('config', spec)['domain']],
+            ))
+        }
     }
 }
 
@@ -75,7 +101,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Swimmer': int(3e2),
     'Hopper': int(1e3),
     'HalfCheetah': int(3e3),
-    'Walker': int(3e3),
+    'Walker2d': int(3e3),
     'Ant': int(3e3),
     'Humanoid': int(1e4),
     'Pusher2d': int(1e3),
@@ -88,6 +114,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'DClaw3': int(100),
     'ImageDClaw3': int(400),
     'HardwareDClaw3': int(100),
+    'Pendulum': 10,
 }
 
 ALGORITHM_PARAMS_PER_DOMAIN = {
@@ -132,43 +159,43 @@ ENV_PARAMS = {
     },
     'HalfCheetah': {  # 6 DoF
     },
-    'Walker': {  # 6 DoF
+    'Walker2d': {  # 6 DoF
     },
     'Ant': {  # 8 DoF
-        'CustomDefault': {
-            'survive_reward': 0.0,
+        'Parameterizable-v0': {
+            'healthy_reward': 0.0,
             'healthy_z_range': (-np.inf, np.inf),
             'exclude_current_positions_from_observation': False,
         }
     },
     'Humanoid': {  # 17 DoF
-        'CustomDefault': {
-            'survive_reward': 0.0,
+        'Parameterizable-v0': {
+            'healthy_reward': 0.0,
             'healthy_z_range': (-np.inf, np.inf),
             'exclude_current_positions_from_observation': False,
         }
     },
     'Pusher2d': {  # 3 DoF
-        'Default': {
+        'Default-v0': {
             'arm_object_distance_cost_coeff': 0.0,
             'goal_object_distance_cost_coeff': 1.0,
             'goal': (0, -1),
         },
-        'DefaultReach': {
+        'DefaultReach-v0': {
             'arm_goal_distance_cost_coeff': 1.0,
             'arm_object_distance_cost_coeff': 0.0,
         },
-        'ImageDefault': {
+        'ImageDefault-v0': {
             'image_shape': (32, 32, 3),
             'arm_object_distance_cost_coeff': 0.0,
             'goal_object_distance_cost_coeff': 3.0,
         },
-        'ImageReach': {
+        'ImageReach-v0': {
             'image_shape': (32, 32, 3),
             'arm_goal_distance_cost_coeff': 1.0,
             'arm_object_distance_cost_coeff': 0.0,
         },
-        'BlindReach': {
+        'BlindReach-v0': {
             'image_shape': (32, 32, 3),
             'arm_goal_distance_cost_coeff': 1.0,
             'arm_object_distance_cost_coeff': 0.0,
@@ -223,19 +250,27 @@ ENV_PARAMS = {
         },
     },
     'Point2DEnv': {
-        'Default': {
+        'Default-v0': {
             'observation_keys': ('observation', ),
         },
-        'Wall': {
+        'Wall-v0': {
             'observation_keys': ('observation', ),
         },
     }
 }
 
-NUM_CHECKPOINTS = 5
+NUM_CHECKPOINTS = 10
 
 
-def get_variant_spec(universe, domain, task, policy):
+def get_variant_spec_base(universe, domain, task, policy, algorithm):
+    algorithm_params = deep_update(
+        ALGORITHM_PARAMS_BASE,
+        ALGORITHM_PARAMS_PER_DOMAIN.get(domain, {})
+    )
+    algorithm_params = deep_update(
+        algorithm_params,
+        ALGORITHM_PARAMS_ADDITIONAL.get(algorithm, {})
+    )
     variant_spec = {
         'domain': domain,
         'task': task,
@@ -253,14 +288,20 @@ def get_variant_spec(universe, domain, task, policy):
                 'hidden_layer_sizes': (M, M),
             }
         },
-        'algorithm_params': deep_update(
-            ALGORITHM_PARAMS_BASE,
-            ALGORITHM_PARAMS_PER_DOMAIN.get(domain, {})
-        ),
+        'algorithm_params': algorithm_params,
         'replay_pool_params': {
             'type': 'SimpleReplayPool',
             'kwargs': {
-                'max_size': 5e5,
+                'max_size': tune.sample_from(lambda spec: (
+                    {
+                        'SimpleReplayPool': int(5e5),
+                        'TrajectoryReplayPool': int(1e4),
+                    }.get(
+                        spec.get('config', spec)
+                        ['replay_pool_params']
+                        ['type'],
+                        int(1e6))
+                )),
             }
         },
         'sampler_params': {
@@ -275,7 +316,8 @@ def get_variant_spec(universe, domain, task, policy):
             }
         },
         'run_params': {
-            'seed': lambda spec: np.random.randint(0, 10000),
+            'seed': tune.sample_from(
+                lambda spec: np.random.randint(0, 10000)),
             'checkpoint_at_end': True,
             'checkpoint_frequency': lambda spec: (
                 25000 // (spec.get('config', spec)
@@ -291,9 +333,15 @@ def get_variant_spec(universe, domain, task, policy):
     return variant_spec
 
 
-def get_variant_spec_image(universe, domain, task, policy, *args, **kwargs):
-    variant_spec = get_variant_spec(
-        universe, domain, task, policy, *args, **kwargs)
+def get_variant_spec_image(universe,
+                           domain,
+                           task,
+                           policy,
+                           algorithm,
+                           *args,
+                           **kwargs):
+    variant_spec = get_variant_spec_base(
+        universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
         preprocessor_params = {
@@ -316,5 +364,24 @@ def get_variant_spec_image(universe, domain, task, policy, *args, **kwargs):
         variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
         variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
+
+    return variant_spec
+
+
+def get_variant_spec(args):
+    universe, domain, task = args.universe, args.domain, args.task
+
+    if ('image' in task.lower()
+        or 'blind' in task.lower()
+        or 'image' in domain.lower()):
+        variant_spec = get_variant_spec_image(
+            universe, domain, task, args.policy, args.algorithm)
+    else:
+        variant_spec = get_variant_spec_base(
+            universe, domain, task, args.policy, args.algorithm)
+
+    if args.checkpoint_replay_pool is not None:
+        variant_spec['run_params']['checkpoint_replay_pool'] = (
+            args.checkpoint_replay_pool)
 
     return variant_spec

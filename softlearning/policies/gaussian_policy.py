@@ -28,7 +28,6 @@ class GaussianPolicy(LatentSpacePolicy):
         self._input_shapes = input_shapes
         self._output_shape = output_shape
         self._squash = squash
-        self._squash = squash
         self._name = name
         self._preprocessor = preprocessor
 
@@ -172,7 +171,7 @@ class GaussianPolicy(LatentSpacePolicy):
 
     def actions(self, conditions):
         if self._deterministic:
-            raise NotImplementedError
+            return self.deterministic_actions_model(conditions)
 
         return self.actions_model(conditions)
 

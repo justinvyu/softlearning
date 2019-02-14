@@ -17,26 +17,26 @@ class SAC(RLAlgorithm):
 
     References
     ----------
-    [1] Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine, "Soft
-        Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning
-        with a Stochastic Actor," Deep Learning Symposium, NIPS 2017.
+    [1] Tuomas Haarnoja*, Aurick Zhou*, Kristian Hartikainen*, George Tucker,
+        Sehoon Ha, Jie Tan, Vikash Kumar, Henry Zhu, Abhishek Gupta, Pieter
+        Abbeel, and Sergey Levine. Soft Actor-Critic Algorithms and
+        Applications. arXiv preprint arXiv:1812.05905. 2018.
     """
 
     def __init__(
             self,
             env,
             policy,
-            initial_exploration_policy,
             Qs,
             pool,
             plotter=None,
             tf_summaries=False,
 
-            lr=3e-3,
+            lr=3e-4,
             reward_scale=1.0,
             target_entropy='auto',
             discount=0.99,
-            tau=0.01,
+            tau=5e-3,
             target_update_interval=1,
             action_prior='uniform',
             reparameterize=False,
@@ -71,7 +71,6 @@ class SAC(RLAlgorithm):
 
         self._env = env
         self._policy = policy
-        self._initial_exploration_policy = initial_exploration_policy
 
         self._Qs = Qs
         self._Q_targets = tuple(tf.keras.models.clone_model(Q) for Q in Qs)
@@ -215,7 +214,7 @@ class SAC(RLAlgorithm):
         critic Q-function with gradient descent, and appends it to
         `self._training_ops` attribute.
 
-        See Equation (10) in [1], for further information of the
+        See Equations (5, 6) in [1], for further information of the
         Q-function update rule.
         """
         Q_target = tf.stop_gradient(self._get_Q_target())
@@ -253,19 +252,14 @@ class SAC(RLAlgorithm):
         self._training_ops.update({'Q': tf.group(Q_training_ops)})
 
     def _init_actor_update(self):
-        """Create minimization operations for policy and state value functions.
+        """Create minimization operations for policy and entropy.
 
         Creates a `tf.optimizer.minimize` operations for updating
-        policy and value functions with gradient descent, and appends them to
+        policy and entropy with gradient descent, and adds them to
         `self._training_ops` attribute.
 
-        In principle, there is no need for a separate state value function
-        approximator, since it could be evaluated using the Q-function and
-        policy. However, in practice, the separate function approximator
-        stabilizes training.
-
-        See Equations (8, 13) in [1], for further information
-        of the value function and policy function update rules.
+        See Section 4.2 in [1], for further information of the policy update,
+        and Section 5 in [1] for further information of the entropy update.
         """
 
         actions = self._policy.actions([self._observations_ph])
@@ -336,15 +330,17 @@ class SAC(RLAlgorithm):
         self._training_ops.update({'policy_train_op': policy_train_op})
 
     def _init_training(self):
-        self._update_target()
+        self._update_target(tau=1.0)
 
-    def _update_target(self):
+    def _update_target(self, tau=None):
+        tau = tau or self._tau
+
         for Q, Q_target in zip(self._Qs, self._Q_targets):
             source_params = Q.get_weights()
             target_params = Q_target.get_weights()
             Q_target.set_weights([
-                (1 - self._tau) * target + self._tau * source
-                for target, source in zip(target_params, source_params)
+                tau * source + (1.0 - tau) * target
+                for source, target in zip(source_params, target_params)
             ])
 
     def _do_training(self, iteration, batch):
@@ -422,12 +418,16 @@ class SAC(RLAlgorithm):
 
     @property
     def tf_saveables(self):
-        return {
+        saveables = {
             '_policy_optimizer': self._policy_optimizer,
             **{
                 f'Q_optimizer_{i}': optimizer
                 for i, optimizer in enumerate(self._Q_optimizers)
             },
             '_log_alpha': self._log_alpha,
-            '_alpha_optimizer': self._alpha_optimizer,
         }
+
+        if hasattr(self, '_alpha_optimizer'):
+            saveables['_alpha_optimizer'] = self._alpha_optimizer
+
+        return saveables

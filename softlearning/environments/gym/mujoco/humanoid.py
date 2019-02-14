@@ -6,7 +6,7 @@ from gym import utils
 DEFAULT_CAMERA_CONFIG = {
     'trackbodyid': 1,
     'distance': 4.0,
-    'lookat': (None, None, 2.0),
+    'lookat': np.array((0.0, 0.0, 2.0)),
     'elevation': -20.0,
 }
 
@@ -19,6 +19,7 @@ def mass_center(model, sim):
 
 class HumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
+                 xml_file='humanoid.xml',
                  forward_reward_weight=0.25,
                  ctrl_cost_weight=0.1,
                  contact_cost_weight=5e-7,
@@ -26,7 +27,10 @@ class HumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
                  healthy_reward=5.0,
                  terminate_when_unhealthy=True,
                  healthy_z_range=(1.0, 2.0),
+                 reset_noise_scale=1e-2,
                  exclude_current_positions_from_observation=True):
+        utils.EzPickle.__init__(**locals())
+
         self._forward_reward_weight = forward_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
         self._contact_cost_weight = contact_cost_weight
@@ -34,21 +38,13 @@ class HumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self._healthy_reward = healthy_reward
         self._terminate_when_unhealthy = terminate_when_unhealthy
         self._healthy_z_range = healthy_z_range
+
+        self._reset_noise_scale = reset_noise_scale
+
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation)
 
-        mujoco_env.MujocoEnv.__init__(self, 'humanoid.xml', 5)
-        utils.EzPickle.__init__(
-            self,
-            forward_reward_weight=self._forward_reward_weight,
-            ctrl_cost_weight=self._ctrl_cost_weight,
-            healthy_reward=self._healthy_reward,
-            terminate_when_unhealthy=self._terminate_when_unhealthy,
-            contact_cost_weight=self._contact_cost_weight,
-            contact_cost_range=self._contact_cost_range,
-            healthy_z_range=self._healthy_z_range,
-            exclude_current_positions_from_observation=(
-                self._exclude_current_positions_from_observation))
+        mujoco_env.MujocoEnv.__init__(self, xml_file, 5)
 
     @property
     def healthy_reward(self):
@@ -137,18 +133,21 @@ class HumanoidEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return observation, reward, done, info
 
     def reset_model(self):
-        c = 0.01
+        noise_low = -self._reset_noise_scale
+        noise_high = self._reset_noise_scale
+
         qpos = self.init_qpos + self.np_random.uniform(
-            low=-c, high=c, size=self.model.nq)
+            low=noise_low, high=noise_high, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(
-            low=-c, high=c, size=self.model.nv)
+            low=noise_low, high=noise_high, size=self.model.nv)
         self.set_state(qpos, qvel)
 
         observation = self._get_obs()
         return observation
 
     def viewer_setup(self):
-        self.viewer.cam.trackbodyid = 1
-        self.viewer.cam.distance = self.model.stat.extent * 1.0
-        self.viewer.cam.lookat[2] = 2.0
-        self.viewer.cam.elevation = -20
+        for key, value in DEFAULT_CAMERA_CONFIG.items():
+            if isinstance(value, np.ndarray):
+                getattr(self.viewer.cam, key)[:] = value
+            else:
+                setattr(self.viewer.cam, key, value)

@@ -10,13 +10,17 @@ DEFAULT_CAMERA_CONFIG = {
 
 class AntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
+                 xml_file='ant.xml',
                  ctrl_cost_weight=0.5,
                  contact_cost_weight=5e-4,
                  healthy_reward=1.0,
                  terminate_when_unhealthy=True,
                  healthy_z_range=(0.2, 1.0),
                  contact_force_range=(-1.0, 1.0),
+                 reset_noise_scale=0.1,
                  exclude_current_positions_from_observation=True):
+        utils.EzPickle.__init__(**locals())
+
         self._ctrl_cost_weight = ctrl_cost_weight
         self._contact_cost_weight = contact_cost_weight
 
@@ -26,20 +30,12 @@ class AntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         self._contact_force_range = contact_force_range
 
+        self._reset_noise_scale = reset_noise_scale
+
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation)
 
-        mujoco_env.MujocoEnv.__init__(self, 'ant.xml', 5)
-        utils.EzPickle.__init__(
-            self,
-            ctrl_cost_weight=self._ctrl_cost_weight,
-            contact_cost_weight=self._contact_cost_weight,
-            healthy_reward=self._healthy_reward,
-            terminate_when_unhealthy=self._terminate_when_unhealthy,
-            healthy_z_range=self._healthy_z_range,
-            contact_force_range=self._contact_force_range,
-            exclude_current_positions_from_observation=(
-                self._exclude_current_positions_from_observation))
+        mujoco_env.MujocoEnv.__init__(self, xml_file, 5)
 
     @property
     def healthy_reward(self):
@@ -108,20 +104,24 @@ class AntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_obs(self):
         position = self.sim.data.qpos.flat.copy()
-        velocitie = self.sim.data.qvel.flat.copy()
+        velocity = self.sim.data.qvel.flat.copy()
         contact_force = self.contact_forces.flat.copy()
 
         if self._exclude_current_positions_from_observation:
             position = position[2:]
 
-        observations = np.concatenate((position, velocitie, contact_force))
+        observations = np.concatenate((position, velocity, contact_force))
 
         return observations
 
     def reset_model(self):
+        noise_low = -self._reset_noise_scale
+        noise_high = self._reset_noise_scale
+
         qpos = self.init_qpos + self.np_random.uniform(
-            size=self.model.nq, low=-0.1, high=0.1)
-        qvel = self.init_qvel + self.np_random.randn(self.model.nv) * 0.1
+            low=noise_low, high=noise_high, size=self.model.nq)
+        qvel = self.init_qvel + self._reset_noise_scale * self.np_random.randn(
+            self.model.nv)
         self.set_state(qpos, qvel)
 
         observation = self._get_obs()
@@ -129,4 +129,8 @@ class AntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return observation
 
     def viewer_setup(self):
-        self.viewer.cam.distance = self.model.stat.extent * 0.5
+        for key, value in DEFAULT_CAMERA_CONFIG.items():
+            if isinstance(value, np.ndarray):
+                getattr(self.viewer.cam, key)[:] = value
+            else:
+                setattr(self.viewer.cam, key, value)

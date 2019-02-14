@@ -3,11 +3,13 @@ from collections import OrderedDict
 from itertools import count
 import gtimer as gt
 import math
+import os
 
 import tensorflow as tf
 import numpy as np
 
 from softlearning.samplers import rollouts
+from softlearning.misc.utils import save_video
 
 
 class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
@@ -25,10 +27,12 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
             n_train_repeat=1,
             max_train_repeat_per_timestep=5,
             n_initial_exploration_steps=0,
+            initial_exploration_policy=None,
             epoch_length=1000,
             eval_n_episodes=10,
             eval_deterministic=True,
             eval_render_mode=None,
+            video_save_frequency=0,
             session=None,
     ):
         """
@@ -49,14 +53,23 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
 
         self._n_epochs = n_epochs
         self._n_train_repeat = n_train_repeat
-        self._max_train_repeat_per_timestep = max_train_repeat_per_timestep
+        self._max_train_repeat_per_timestep = max(
+            max_train_repeat_per_timestep, n_train_repeat)
         self._train_every_n_steps = train_every_n_steps
         self._epoch_length = epoch_length
         self._n_initial_exploration_steps = n_initial_exploration_steps
+        self._initial_exploration_policy = initial_exploration_policy
 
         self._eval_n_episodes = eval_n_episodes
         self._eval_deterministic = eval_deterministic
-        self._eval_render_mode = eval_render_mode
+        self._video_save_frequency = video_save_frequency
+
+        if self._video_save_frequency > 0:
+            assert eval_render_mode != 'human', (
+                "RlAlgorithm cannot render and save videos at the same time")
+            self._eval_render_mode = 'rgb_array'
+        else:
+            self._eval_render_mode = eval_render_mode
 
         self._session = session or tf.keras.backend.get_session()
 
@@ -150,7 +163,8 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
                 samples_now = self.sampler._total_samples
                 self._timestep = samples_now - start_samples
 
-                if samples_now >= start_samples + self._epoch_length:
+                if (samples_now >= start_samples + self._epoch_length
+                    and self.ready_to_train):
                     break
 
                 self._timestep_before_hook()
@@ -239,6 +253,18 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
                 self.sampler._max_path_length,
                 self._eval_n_episodes,
                 render_mode=self._eval_render_mode)
+
+        should_save_video = (
+            self._video_save_frequency > 0
+            and self._epoch % self._video_save_frequency == 0)
+
+        if should_save_video:
+            for i, path in enumerate(paths):
+                video_frames = path.pop('images')
+                video_file_name = f'evaluation_path_{self._epoch}_{i}.avi'
+                video_file_path = os.path.join(
+                    os.getcwd(), 'videos', video_file_name)
+                save_video(video_frames, video_file_path)
 
         return paths
 

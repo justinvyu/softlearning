@@ -3,23 +3,27 @@ from gym.envs.mujoco import mujoco_env
 from gym import utils
 
 
+DEFAULT_CAMERA_CONFIG = {}
+
+
 class SwimmerEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self,
+                 xml_file='swimmer.xml',
                  forward_reward_weight=1.0,
                  ctrl_cost_weight=1e-4,
+                 reset_noise_scale=0.1,
                  exclude_current_positions_from_observation=True):
+        utils.EzPickle.__init__(**locals())
+
         self._forward_reward_weight = forward_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
+
+        self._reset_noise_scale = reset_noise_scale
+
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation)
 
-        mujoco_env.MujocoEnv.__init__(self, 'swimmer.xml', 4)
-        utils.EzPickle.__init__(
-            self,
-            forward_reward_weight=self._forward_reward_weight,
-            ctrl_cost_weight=self._ctrl_cost_weight,
-            exclude_current_positions_from_observation=(
-                self._exclude_current_positions_from_observation))
+        mujoco_env.MujocoEnv.__init__(self, xml_file, 4)
 
     def control_cost(self, action):
         control_cost = self._ctrl_cost_weight * np.sum(np.square(action))
@@ -63,13 +67,22 @@ class SwimmerEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return observation
 
     def reset_model(self):
-        c = 1.0
+        noise_low = -self._reset_noise_scale
+        noise_high = self._reset_noise_scale
+
         qpos = self.init_qpos + self.np_random.uniform(
-            low=-c, high=c, size=self.model.nq)
+            low=noise_low, high=noise_high, size=self.model.nq)
         qvel = self.init_qvel + self.np_random.uniform(
-            low=-c, high=c, size=self.model.nv)
+            low=noise_low, high=noise_high, size=self.model.nv)
 
         self.set_state(qpos, qvel)
 
         observation = self._get_obs()
         return observation
+
+    def viewer_setup(self):
+        for key, value in DEFAULT_CAMERA_CONFIG.items():
+            if isinstance(value, np.ndarray):
+                getattr(self.viewer.cam, key)[:] = value
+            else:
+                setattr(self.viewer.cam, key, value)
