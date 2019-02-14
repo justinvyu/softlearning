@@ -39,6 +39,8 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
+    'DClaw3': 200,
+    'HardwareDClaw3': 100,
 }
 
 ALGORITHM_PARAMS_BASE = {
@@ -46,12 +48,12 @@ ALGORITHM_PARAMS_BASE = {
 
     'kwargs': {
         'epoch_length': 1000,
-        'train_every_n_steps': 1,
-        'n_train_repeat': 1,
-        'n_initial_exploration_steps': int(1e3),
+        'train_every_n_steps': 1, # 1 train cycle per n real life steps
+        'n_train_repeat': 1, # num train iters (batch + grad step) per training cycle
+        'n_initial_exploration_steps': 1000,
         'reparameterize': REPARAMETERIZE,
         'eval_render_mode': None,
-        'eval_n_episodes': 1,
+        'eval_n_episodes': 3, # num of eval rollouts
         'eval_deterministic': True,
 
         'lr': 3e-4,
@@ -62,6 +64,7 @@ ALGORITHM_PARAMS_BASE = {
         'reward_scale': 1.0,
         'store_extra_policy_info': False,
         'action_prior': 'uniform',
+        'her_iters': 0,
     }
 }
 
@@ -81,6 +84,8 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
+    'DClaw3': int(5000),
+    'HardwareDClaw3': int(5000),
 }
 
 ALGORITHM_PARAMS_PER_DOMAIN = {
@@ -97,6 +102,29 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
 }
+
+ALGORITHM_PARAMS_PER_DOMAIN['DClaw3']['kwargs'].update({
+    'her_iters': 0,
+    # 'goal_classifier_params_direc': '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train/params.ckpt',
+})
+
+class NegativeLogLossFn(object):
+    def __init__(self, eps):
+        self._eps = eps
+
+    def __call__(self, object_target_distance):
+        return (
+            - np.log(object_target_distance + self._eps)
+            + np.log(np.pi + self._eps))
+
+    def __str__(self):
+        return str(f'eps={self._eps:e}')
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self._eps == other._eps
+
+        return super(NegativeLogLossFn, self).__eq__(other)
 
 ENV_PARAMS = {
     'Swimmer': {  # 2 DoF
@@ -154,10 +182,71 @@ ENV_PARAMS = {
         'Wall': {
             'observation_keys': ('observation', ),
         },
+    },
+    'DClaw3': {
+        'ScrewV0': {  # 6 DoF
+            'isHARDARE': False,
+        },
+        'ScrewV2': {
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (0, 0), #(-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (np.pi, np.pi), # (-np.pi, np.pi),
+            'reset_free': False,
+        },
+        'ImageScrewV2': {
+            'is_hardware': False,
+            'image_shape': (32, 32, 3),
+            'reset_free': True,
+            'goal_in_state': True,
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+        }
+    },
+    'HardwareDClaw3': {
+        'ScrewV2': {
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+        },
+        'ImageScrewV2': {
+            'image_shape': (32, 32, 3),
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+            'hw_w_sim_imgs': True,
+        },
     }
 }
 
 NUM_CHECKPOINTS = 10
+SAMPLER_PARAMS_PER_DOMAIN = {
+    'DClaw3': {
+        'type': 'SimpleSampler',
+    },
+    'HardwareDClaw3': {
+        'type': 'RemoteSampler',
+    }
+}
 
 
 def get_variant_spec(universe, domain, task, policy):
@@ -188,8 +277,8 @@ def get_variant_spec(universe, domain, task, policy):
                 'max_size': 1e6,
             }
         },
-        'sampler_params': {
-            'type': 'SimpleSampler',
+        'sampler_params': deep_update({
+            'type': 'RemoteSampler', #'SimpleSampler',
             'kwargs': {
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
@@ -197,7 +286,7 @@ def get_variant_spec(universe, domain, task, policy):
                     domain, DEFAULT_MAX_PATH_LENGTH),
                 'batch_size': 256,
             }
-        },
+        }, SAMPLER_PARAMS_PER_DOMAIN.get(domain, {})),
         'run_params': {
             'seed': tune.sample_from(
                 lambda spec: np.random.randint(0, 10000)),

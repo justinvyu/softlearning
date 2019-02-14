@@ -138,13 +138,14 @@ class FlexibleReplayPool(ReplayPool):
         return state
 
     def __setstate__(self, state):
-        if state['_size'] < state['_max_size']:
-            pad_size = state['_max_size'] - state['_size']
-            for field_name in state['field_names']:
-                field_shape = state['fields'][field_name]['shape']
-                state[field_name] = np.concatenate((
-                    state[field_name],
-                    np.zeros((pad_size, *field_shape))
-                ), axis=0)
+        # if state['_size'] < state['_max_size']:
+        #     pad_size = state['_max_size'] - state['_size']
+        #     for field_name in state['field_names']:
+        #         field_shape = state['fields'][field_name]['shape']
+        #         state[field_name] = np.concatenate((
+        #             state[field_name],
+        #             np.zeros((pad_size, *field_shape))
+        #         ), axis=0)
+
 
         self.__dict__ = state

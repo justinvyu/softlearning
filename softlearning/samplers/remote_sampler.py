@@ -78,14 +78,16 @@ class RemoteSampler(BaseSampler):
         return diagnostics
 
     def __getstate__(self):
-        state = self.__dict__.copy()
-        del state['_remote_environment']
-        del state['_remote_path']
+        super_state = super(RemoteSampler, self).__getstate__()
+        state = {
+            key: value for key, value in super_state.items()
+            if key not in ('env', 'policy', 'pool')
+        }
 
         return state
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
+        super(RemoteSampler, self).__setstate__(state)
         self._create_remote_environment(self.env, self.policy)
         self._remote_path = None
 
@@ -109,6 +111,7 @@ class _RemoteEnv(object):
 
     def rollout(self, policy_weights, path_length):
         self._policy.set_weights(policy_weights)
+        del policy_weights
         path = rollout(self._env, self._policy, path_length)
 
         return path

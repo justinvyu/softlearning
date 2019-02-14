@@ -3,28 +3,30 @@
 import numpy as np
 import gym
 from gym import spaces, wrappers
-
-from multiworld.envs.pygame.point2d import Point2DEnv, Point2DWallEnv
-
+# from multiworld.envs.pygame.point2d import Point2DEnv, Point2DWallEnv
+#
 from .softlearning_env import SoftlearningEnv
 from softlearning.environments.gym.wrappers import NormalizeActionWrapper
-from softlearning.environments.gym.mujoco.ant_env import AntEnv as CustomAntEnv
-from softlearning.environments.gym.mujoco.humanoid_env import (
-    HumanoidEnv as CustomHumanoidEnv)
-from softlearning.environments.gym.mujoco.walker2d_env import (
-    Walker2dEnv as CustomWalker2dEnv)
-from softlearning.environments.gym.mujoco.hopper_env import (
-    HopperEnv as CustomHopperEnv)
-from softlearning.environments.gym.mujoco.swimmer_env import (
-    SwimmerEnv as CustomSwimmerEnv)
-from softlearning.environments.gym.mujoco.pusher_2d_env import (
-    Pusher2dEnv,
-    ForkReacherEnv)
-from softlearning.environments.gym.mujoco.image_pusher import (
-    ImagePusherEnv,
-    ImageForkReacherEnv,
-    BlindForkReacherEnv)
-from softlearning.environments.gym.multi_goal import MultiGoalEnv
+# from softlearning.environments.gym.mujoco.ant_env import AntEnv as CustomAntEnv
+# from softlearning.environments.gym.mujoco.humanoid_env import (
+#     HumanoidEnv as CustomHumanoidEnv)
+# from softlearning.environments.gym.mujoco.walker2d_env import (
+#     Walker2dEnv as CustomWalker2dEnv)
+# from softlearning.environments.gym.mujoco.hopper_env import (
+#     HopperEnv as CustomHopperEnv)
+# from softlearning.environments.gym.mujoco.swimmer_env import (
+#     SwimmerEnv as CustomSwimmerEnv)
+# from softlearning.environments.gym.mujoco.pusher_2d_env import (
+#     Pusher2dEnv,
+#     ForkReacherEnv)
+# from softlearning.environments.gym.mujoco.image_pusher import (
+#     ImagePusherEnv,
+#     ImageForkReacherEnv,
+#     BlindForkReacherEnv)
+# from softlearning.environments.gym.multi_goal import MultiGoalEnv
+from transferHMS.envs.dclaw.dclaw3_screw_v0 import DClaw3ScrewV0
+from sac_envs.envs.dclaw.dclaw3_screw_v2 import ImageDClaw3ScrewV2, DClaw3ScrewV2
+
 
 
 def raise_on_use_wrapper(e):
@@ -34,82 +36,121 @@ def raise_on_use_wrapper(e):
 
 
 GYM_ENVIRONMENTS = {
-    'Swimmer': {
-        'v2': lambda: gym.envs.make('Swimmer-v2'),
-        'CustomDefault': CustomSwimmerEnv,
-        'Default': lambda: gym.envs.make('Swimmer-v2'),
+    # 'Swimmer': {
+    #     'v2': lambda: gym.envs.make('Swimmer-v2'),
+    #     'CustomDefault': CustomSwimmerEnv,
+    #     'Default': lambda: gym.envs.make('Swimmer-v2'),
+    # },
+    # 'Ant': {
+    #     'v2': lambda: gym.envs.make('Ant-v2'),
+    #     'Custom': CustomAntEnv,
+    #     'Default': lambda: gym.envs.make('Ant-v2'),
+    # },
+    # 'Humanoid': {
+    #     'v2': lambda: gym.envs.make('Humanoid-v2'),
+    #     'Standup-v2': lambda: gym.envs.make('HumanoidStandup-v2'),
+    #     'Custom': CustomHumanoidEnv,
+    #     'Default': lambda: gym.envs.make('Humanoid-v2'),
+    # },
+    # 'Hopper': {
+    #     'v2': lambda: gym.envs.make('Hopper-v2'),
+    #     'Custom': CustomHopperEnv,
+    #     'Default': lambda: gym.envs.make('Hopper-v2'),
+    # },
+    # 'HalfCheetah': {
+    #     'v2': lambda: gym.envs.make('HalfCheetah-v2'),
+    #     'Default': lambda: gym.envs.make('HalfCheetah-v2'),
+    # },
+    # 'Walker': {
+    #     'v2': lambda: gym.envs.make('Walker2d-v2'),
+    #     'Custom': CustomWalker2dEnv,
+    #     'Default': lambda: gym.envs.make('Walker2d-v2'),
+    # },
+    # 'Pusher2d': {
+    #     'Default': Pusher2dEnv,
+    #     'DefaultReach': ForkReacherEnv,
+    #
+    #     'ImageDefault': ImagePusherEnv,
+    #     'ImageReach': ImageForkReacherEnv,
+    #     'BlindReach': BlindForkReacherEnv,
+    # },
+    # 'Point2DEnv': {
+    #     'Default': Point2DEnv,
+    #     'Wall': Point2DWallEnv,
+    # },
+    # 'HandManipulatePen': {
+    #     'v0': lambda: gym.envs.make('HandManipulatePen-v0'),
+    #     'Dense-v0': lambda: gym.envs.make('HandManipulatePenDense-v0'),
+    #     'Default': lambda: gym.envs.make('HandManipulatePen-v0'),
+    # },
+    # 'HandManipulateEgg': {
+    #     'v0': lambda: gym.envs.make('HandManipulateEgg-v0'),
+    #     'Dense-v0': lambda: gym.envs.make('HandManipulateEggDense-v0'),
+    #     'Default': lambda: gym.envs.make('HandManipulateEgg-v0'),
+    # },
+    # 'HandManipulateBlock': {
+    #     'v0': lambda: gym.envs.make('HandManipulateBlock-v0'),
+    #     'Dense-v0': lambda: gym.envs.make('HandManipulateBlockDense-v0'),
+    #     'Default': lambda: gym.envs.make('HandManipulateBlock-v0'),
+    # },
+    # 'HandReach': {
+    #     'v0': lambda: gym.envs.make('HandReach-v0'),
+    #     'Dense-v0': lambda: gym.envs.make('HandReachDense-v0'),
+    #     'Default': lambda: gym.envs.make('HandReach-v0'),
+    # },
+    # 'InvertedDoublePendulum': {
+    #     'Default': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
+    #     'v2': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
+    # },
+    # 'Reacher': {
+    #     'Default': lambda: gym.envs.make('Reacher-v2'),
+    #     'v2': lambda: gym.envs.make('Reacher-v2'),
+    # },
+    # 'InvertedPendulum': {
+    #     'Default': lambda: gym.envs.make('InvertedPendulum-v2'),
+    #     'v2': lambda: gym.envs.make('InvertedPendulum-v2'),
+    # },
+    # 'MultiGoal': {
+    #     'Default': MultiGoalEnv
+    # },
+    'DClaw3': {
+        'ScrewV0': DClaw3ScrewV0,
+        'ScrewV2': DClaw3ScrewV2,
+        'ImageScrewV2': ImageDClaw3ScrewV2,
     },
-    'Ant': {
-        'v2': lambda: gym.envs.make('Ant-v2'),
-        'Custom': CustomAntEnv,
-        'Default': lambda: gym.envs.make('Ant-v2'),
-    },
-    'Humanoid': {
-        'v2': lambda: gym.envs.make('Humanoid-v2'),
-        'Standup-v2': lambda: gym.envs.make('HumanoidStandup-v2'),
-        'Custom': CustomHumanoidEnv,
-        'Default': lambda: gym.envs.make('Humanoid-v2'),
-    },
-    'Hopper': {
-        'v2': lambda: gym.envs.make('Hopper-v2'),
-        'Custom': CustomHopperEnv,
-        'Default': lambda: gym.envs.make('Hopper-v2'),
-    },
-    'HalfCheetah': {
-        'v2': lambda: gym.envs.make('HalfCheetah-v2'),
-        'Default': lambda: gym.envs.make('HalfCheetah-v2'),
-    },
-    'Walker': {
-        'v2': lambda: gym.envs.make('Walker2d-v2'),
-        'Custom': CustomWalker2dEnv,
-        'Default': lambda: gym.envs.make('Walker2d-v2'),
-    },
-    'Pusher2d': {
-        'Default': Pusher2dEnv,
-        'DefaultReach': ForkReacherEnv,
-
-        'ImageDefault': ImagePusherEnv,
-        'ImageReach': ImageForkReacherEnv,
-        'BlindReach': BlindForkReacherEnv,
-    },
-    'Point2DEnv': {
-        'Default': Point2DEnv,
-        'Wall': Point2DWallEnv,
-    },
-    'HandManipulatePen': {
-        'v0': lambda: gym.envs.make('HandManipulatePen-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulatePenDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulatePen-v0'),
-    },
-    'HandManipulateEgg': {
-        'v0': lambda: gym.envs.make('HandManipulateEgg-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulateEggDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulateEgg-v0'),
-    },
-    'HandManipulateBlock': {
-        'v0': lambda: gym.envs.make('HandManipulateBlock-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandManipulateBlockDense-v0'),
-        'Default': lambda: gym.envs.make('HandManipulateBlock-v0'),
-    },
-    'HandReach': {
-        'v0': lambda: gym.envs.make('HandReach-v0'),
-        'Dense-v0': lambda: gym.envs.make('HandReachDense-v0'),
-        'Default': lambda: gym.envs.make('HandReach-v0'),
-    },
-    'InvertedDoublePendulum': {
-        'Default': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
-        'v2': lambda: gym.envs.make('InvertedDoublePendulum-v2'),
-    },
-    'Reacher': {
-        'Default': lambda: gym.envs.make('Reacher-v2'),
-        'v2': lambda: gym.envs.make('Reacher-v2'),
-    },
-    'InvertedPendulum': {
-        'Default': lambda: gym.envs.make('InvertedPendulum-v2'),
-        'v2': lambda: gym.envs.make('InvertedPendulum-v2'),
-    },
-    'MultiGoal': {
-        'Default': MultiGoalEnv
+    'HardwareDClaw3': {
+        'ScrewV2': lambda *args, **kwargs: (
+            DClaw3ScrewV2(
+                *args,
+                is_hardware=True,
+                pose_difference_cost_coeff=kwargs.pop(
+                    'pose_difference_cost_coeff', 0),
+                joint_velocity_cost_coeff=kwargs.pop(
+                    'joint_velocity_cost_coeff', 0),
+                joint_acceleration_cost_coeff=kwargs.pop(
+                    'joint_acceleration_cost_coeff', 0),
+                target_initial_position_range=kwargs.pop(
+                    'target_initial_position_range', (np.pi, np.pi)),
+                object_initial_position_range=kwargs.pop(
+                    'object_initial_position_range', (0, 0)),
+                frame_skip=kwargs.pop('frame_skip', 30),
+                **kwargs)),
+        'ImageScrewV2': lambda *args, **kwargs: (
+            ImageDClaw3ScrewV2(
+                *args,
+                is_hardware=True,
+                pose_difference_cost_coeff=kwargs.pop(
+                    'pose_difference_cost_coeff', 0),
+                joint_velocity_cost_coeff=kwargs.pop(
+                    'joint_velocity_cost_coeff', 0),
+                joint_acceleration_cost_coeff=kwargs.pop(
+                    'joint_acceleration_cost_coeff', 0),
+                target_initial_position_range=kwargs.pop(
+                    'target_initial_position_range', (np.pi, np.pi)),
+                object_initial_position_range=kwargs.pop(
+                    'object_initial_position_range', (-np.pi, np.pi)),
+                frame_skip=kwargs.pop('frame_skip', 30),
+                **kwargs)),
     },
 }
 
@@ -204,14 +245,22 @@ class GymAdapter(SoftlearningEnv):
         # observation = OrderedDict()
         # observation['observation'] = env.step(action, *args, **kwargs)
         # return observation
-
-        return self._env.step(action, *args, **kwargs)
+        try:
+            return self._env.step(action, *args, **kwargs)
+        except:
+            return self._env._step(action, *args, **kwargs)
 
     def reset(self, *args, **kwargs):
-        return self._env.reset(*args, **kwargs)
+        try:
+            return self._env.reset(*args, **kwargs)
+        except:
+            return self._env.reset_model(*args, **kwargs)
 
     def render(self, *args, **kwargs):
-        return self._env.render(*args, **kwargs)
+        try:
+            return self._env.render(*args, **kwargs)
+        except:
+            return self._env.mj_render()
 
     def close(self, *args, **kwargs):
         return self._env.close(*args, **kwargs)

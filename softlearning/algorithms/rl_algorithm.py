@@ -23,7 +23,7 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
             n_epochs=1000,
             train_every_n_steps=1,
             n_train_repeat=1,
-            max_train_repeat_per_timestep=5,
+            max_train_repeat_per_timestep=5, # number of gradient steps per env step
             n_initial_exploration_steps=0,
             epoch_length=1000,
             eval_n_episodes=10,
@@ -45,6 +45,8 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
             eval_render_mode (`str`): Mode to render evaluation rollouts in.
                 None to disable rendering.
         """
+        # import ipdb; ipdb.set_trace()
+        # print(tf.trainable_variables())
         self.sampler = sampler
 
         self._n_epochs = n_epochs
@@ -58,6 +60,10 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
         self._eval_deterministic = eval_deterministic
         self._eval_render_mode = eval_render_mode
 
+        # gpu_options = tf.GPUOptions(allow_growth=True)
+        # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2)
+        # session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        # tf.keras.backend.set_session(session)
         self._session = session or tf.keras.backend.get_session()
 
         self._epoch = 0
@@ -133,7 +139,7 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
                 env, initial_exploration_policy, pool)
 
         self.sampler.initialize(env, policy, pool)
-        evaluation_env = env.copy() if self._eval_n_episodes else None
+        evaluation_env = env if self._eval_n_episodes else None
 
         gt.reset_root()
         gt.rename_root('RLAlgorithm')
@@ -144,7 +150,6 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
         for self._epoch in gt.timed_for(range(self._epoch, self._n_epochs)):
             self._epoch_before_hook()
             gt.stamp('epoch_before_hook')
-
             start_samples = self.sampler._total_samples
             for i in count():
                 samples_now = self.sampler._total_samples
@@ -158,7 +163,6 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
 
                 self._do_sampling(timestep=self._total_timestep)
                 gt.stamp('sample')
-
                 if self.ready_to_train:
                     self._do_training_repeats(timestep=self._total_timestep)
                 gt.stamp('train')
@@ -288,10 +292,16 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
             > self._max_train_repeat_per_timestep * self._timestep)
         if trained_enough: return
 
+        import time
+        t0 = time.time()
+        self._training_batch()
+        print('get training batch: ', time.time() - t0)
+        t0 = time.time()
         for i in range(self._n_train_repeat):
             self._do_training(
                 iteration=timestep,
                 batch=self._training_batch())
+        print('n train repeat: ', time.time() - t0)
 
         self._num_train_steps += self._n_train_repeat
         self._train_steps_this_epoch += self._n_train_repeat

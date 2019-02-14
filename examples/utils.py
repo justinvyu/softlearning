@@ -252,9 +252,12 @@ def launch_experiments_ray(variant_specs,
             resources_per_trial['extra_gpu'] = 1
 
         ray.init(
+            temp_dir='/tmp/ray-henry',
             resources=resources,
             num_cpus=args.cpus,
-            num_gpus=args.gpus)
+            num_gpus=args.gpus,
+            object_store_memory=10**10,
+            )
     else:
         ray.init(redis_address=ray.services.get_node_ip_address() + ':6379')
 

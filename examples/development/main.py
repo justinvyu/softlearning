@@ -1,3 +1,4 @@
+
 import os
 import copy
 import glob
@@ -5,6 +6,7 @@ from distutils.util import strtobool
 import pickle
 from pprint import pprint
 import sys
+
 
 import tensorflow as tf
 from ray import tune
@@ -25,7 +27,8 @@ from examples.utils import (
     launch_experiments_ray)
 from examples.development.variants import (
     get_variant_spec,
-    get_variant_spec_image)
+    get_variant_spec_image)\
+
 
 
 class ExperimentRunner(tune.Trainable):
@@ -33,6 +36,9 @@ class ExperimentRunner(tune.Trainable):
         set_seed(variant['run_params']['seed'])
 
         self._variant = variant
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
+        session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        tf.keras.backend.set_session(session)
         self._session = tf.keras.backend.get_session()
 
         self.train_generator = None
@@ -99,7 +105,7 @@ class ExperimentRunner(tune.Trainable):
         """Implements the checkpoint logic.
 
         TODO(hartikainen): This implementation is currently very hacky. Things
-        that need to be fixed:
+        that                                                                                                                                                                                                                                             need to be fixed:
           - Figure out how serialize/save tf.keras.Model subclassing. The
             current implementation just dumps the weights in a pickle, which
             is not optimal.
@@ -160,18 +166,17 @@ class ExperimentRunner(tune.Trainable):
 
         variant_diff = DeepDiff(self._variant, pickleable['variant'])
 
-        if variant_diff:
-            print("Your current variant is different from the checkpointed"
-                  " variable. Please make sure that the differences are"
-                  " expected. Differences:")
-            pprint(variant_diff)
-
-            if not strtobool(
-                    input("Continue despite the variant differences?\n")):
-                sys.exit(0)
+        # if variant_diff:
+        #     print("Your current variant is different from the checkpointed"
+        #           " variable. Please make sure that the differences are"
+        #           " expected. Differences:")
+        #     pprint(variant_diff)
+        #
+        #     if not strtobool(
+        #             input("Continue despite the variant differences?\n")):
+        #         sys.exit(0)
 
         env = self.env = pickleable['env']
-
         replay_pool = self.replay_pool = (
             get_replay_pool_from_variant(self._variant, env))
 
