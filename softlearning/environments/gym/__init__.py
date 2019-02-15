@@ -6,6 +6,7 @@ implementing a mujoco env, you would implement it under gym.mujoco submodule.
 """
 
 import gym
+from sac_envs.envs import dclaw
 
 
 CUSTOM_GYM_ENVIRONMENTS_PATH = __package__
