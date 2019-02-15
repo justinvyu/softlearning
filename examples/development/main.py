@@ -38,10 +38,6 @@ class ExperimentRunner(tune.Trainable):
     def _build(self):
         variant = copy.deepcopy(self._variant)
 
-        if 'preprocessor_params' in variant['policy_params']['kwargs']:
-            variant['Q_params']['kwargs']['preprocessor_params'] = copy.deepcopy(
-                variant['policy_params']['kwargs']['preprocessor_params'])
-
         env = self.env = get_environment_from_variant(variant)
         replay_pool = self.replay_pool = (
             get_replay_pool_from_variant(variant, env))

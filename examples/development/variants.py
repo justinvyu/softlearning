@@ -41,6 +41,7 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
     'Pendulum': 200,
+    'Pusher2d': 100,
 }
 
 ALGORITHM_PARAMS_BASE = {
@@ -104,7 +105,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Walker2d': int(3e3),
     'Ant': int(3e3),
     'Humanoid': int(1e4),
-    'Pusher2d': int(1e3),
+    'Pusher2d': int(3e2),
     'HandManipulatePen': int(1e4),
     'HandManipulateEgg': int(1e4),
     'HandManipulateBlock': int(1e4),
@@ -112,7 +113,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Point2DEnv': int(200),
     'Reacher': int(200),
     'DClaw3': int(100),
-    'ImageDClaw3': int(400),
+    'ImageDClaw3': int(300),
     'HardwareDClaw3': int(100),
     'Pendulum': 10,
 }
@@ -202,24 +203,22 @@ ENV_PARAMS = {
         }
     },
     'DClaw3': {
-        'ScrewV2': {
+        'ScrewV2-v0': {
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0.0,
-            'joint_velocity_cost_coeff': 0.0,
-            'joint_acceleration_cost_coeff': tune.grid_search([0]),
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
+            'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (-np.pi, np.pi),
-        }
-    },
-    'ImageDClaw3': {
-        'Screw': {
+        },
+        'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0.0,
-            'joint_velocity_cost_coeff': 0.0,
-            'joint_acceleration_cost_coeff': tune.grid_search([0]),
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
+            'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
@@ -227,21 +226,21 @@ ENV_PARAMS = {
         }
     },
     'HardwareDClaw3': {
-        'ScrewV2': {
+        'ScrewV2-v0': {
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (-1.98, -1.98 + 2 * np.pi),
         },
-        'ImageScrewV2': {
+        'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
@@ -350,8 +349,9 @@ def get_variant_spec_image(universe,
                 'image_shape': variant_spec['env_params']['image_shape'],
                 'output_size': M,
                 'num_conv_layers': tune.grid_search([2, 3]),
-                'num_filters_per_layer': tune.grid_search([4, 8]),
-                'pool_size': tune.grid_search([2]),
+                'num_filters_per_layer': tune.grid_search([4, 8, 16, 32]),
+                'pool_type': 'AvgPool2D',
+                'pool_size': tune.grid_search([2, 3]),
                 'dense_hidden_layer_sizes': (),
             },
         }
@@ -360,7 +360,12 @@ def get_variant_spec_image(universe,
             preprocessor_params.copy())
 
         variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
-            preprocessor_params.copy())
+            tune.sample_from(lambda spec: (
+                spec.get('config', spec)
+                ['policy_params']
+                ['kwargs']
+                ['preprocessor_params']
+            )))
         variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
 
     return variant_spec
