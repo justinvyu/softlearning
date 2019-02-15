@@ -28,7 +28,9 @@ services:
        - ~/.aws:/root/.aws  # If using aws, e.g. for s3
        - ~/.config/gcloud:/root/.config/gcloud  # If using gcp, e.g. for gs
        - ~/.mujoco/mjkey.txt:/root/.mujoco/mjkey.txt  # mjkey.txt
+       - ~/github/vikashplus/sac_envs:/root/sac_envs
        - ..:/root/softlearning
+       - ~/ray_results/docker:/root/ray_results
     command:
       - bash
     stdin_open: true
