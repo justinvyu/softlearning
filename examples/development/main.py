@@ -157,7 +157,8 @@ class ExperimentRunner(tune.Trainable):
         if self.train_generator is None:
             self.train_generator = self.algorithm.train()
 
-        diagnostics = next(self.train_generator)
+        with self.memory_debugger:
+            diagnostics = next(self.train_generator)
 
         diagnostics.update({
             f'memory/{key} [KiB]': value
