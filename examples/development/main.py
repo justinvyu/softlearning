@@ -157,21 +157,17 @@ class ExperimentRunner(tune.Trainable):
         if self.train_generator is None:
             self.train_generator = self.algorithm.train()
 
-        try:
-            with self.memory_debugger:
-                diagnostics = next(self.train_generator)
+        diagnostics = next(self.train_generator)
 
-            diagnostics.update({
-                f'memory/{key} [KiB]': value
-                for key, value in
-                self.memory_debugger.get_diagnostics().items()
-            })
+        diagnostics.update({
+            f'memory/{key} [KiB]': value
+            for key, value in
+            self.memory_debugger.get_diagnostics().items()
+        })
 
-            self.memory_debugger.save_and_display_top(os.getcwd())
+        self.memory_debugger.save_and_display_top(os.getcwd())
 
-            return diagnostics
-        except StopIteration:
-            return {'done': True}
+        return diagnostics
 
     def _pickle_path(self, checkpoint_dir):
         return os.path.join(checkpoint_dir, 'checkpoint.pkl')
