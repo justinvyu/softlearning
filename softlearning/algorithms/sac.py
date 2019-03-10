@@ -45,6 +45,7 @@ class SAC(RLAlgorithm):
             her_iters=0,
             goal_classifier_params_direc=None,
             save_full_state=False,
+            save_eval_paths=False,
             **kwargs,
     ):
         """
@@ -103,6 +104,7 @@ class SAC(RLAlgorithm):
         self._base_env = env._env.env
 
         self._save_full_state = save_full_state
+        self._save_eval_paths = save_eval_paths
 
         observation_shape = self._training_environment.active_observation_shape
         action_shape = self._training_environment.action_space.shape
@@ -202,8 +204,8 @@ class SAC(RLAlgorithm):
         # with tf.variable_scope('goal_classifier'):
         self._goal_classifier = CNN(goal_cond=True)
         variables = self._goal_classifier.get_variables()
-        # cnn_vars = [v for v in tf.trainable_variables() if v.name.split('/')[0] == 'goal_classifier']
-        import ipdb; ipdb.set_trace()
+        cnn_vars = [v for v in tf.trainable_variables() if v.name.split('/')[0] == 'goal_classifier']
+        # import ipdb; ipdb.set_trace()
         saver = tf.train.Saver(cnn_vars)
         saver.restore(self._session, goal_classifier_params_direc)
         # with tf.Graph().as_default():
@@ -218,9 +220,16 @@ class SAC(RLAlgorithm):
         # tf.trainable_variables()
 
     def _classify_as_goals(self, observations):
-        feed_dict = {self._goal_classifier.images: observations[:,:-1],
-            self._goal_classifier.goals: observations[:,-1]}
-        goal_probs = self._session.run(self._goal_classifier.pred_probs, feed_dict=feed_dict)
+        # NOTE: we can choose any goals we want.
+        # Things to try:
+        # - random goal
+        # - single goal
+        images = observations[:, :32*32*3].reshape((-1, 32, 32, 3))
+        # images = ((images + 1)*255/2).astype('uint8') # unnormalize images
+        feed_dict = {self._goal_classifier.images: images,
+            self._goal_classifier.goals: observations[:,-1].reshape((-1, 1))}
+        # lid_pos = observations[:, -2]
+        goal_probs = self._session.run(self._goal_classifier.pred_probs, feed_dict=feed_dict)[:, 1].reshape((-1, 1))
         return goal_probs
 
     def _get_Q_target(self):
@@ -401,6 +410,7 @@ class SAC(RLAlgorithm):
             self._next_observations_ph: batch['next_observations'],
             self._terminals_ph: batch['terminals'],
         }
+
         if self._goal_classifier:
             feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])
         else:
@@ -474,6 +484,15 @@ class SAC(RLAlgorithm):
             f'policy/{key}': value
             for key, value in policy_diagnostics.items()
         })
+
+        if self._goal_classifier:
+            diagnostics.update({'goal_classifier/avg_reward': np.mean(feed_dict[self._rewards_ph])})
+
+        if self._save_eval_paths:
+            import pickle
+            file_name = f'eval_paths_{iteration // self.epoch_length}.pkl'
+            with open(os.path.join(os.getcwd(), file_name)) as f:
+                pickle.dump(evaluation_paths, f)
 
         if self._plotter:
             self._plotter.draw()

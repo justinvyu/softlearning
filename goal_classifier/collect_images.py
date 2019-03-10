@@ -71,7 +71,7 @@ while i <= 10000:
         image = obs[:np.prod(image_shape)].reshape(image_shape)
         images.append([image, lid_position[0]])
         print_image = (image + 1)*255/2
-        imageio.imwrite(cur_dir + '/screw_imgs/img%i.jpg' %i, print_image)
+        imageio.imwrite(cur_dir + '/screw_imgs_2/img%i.jpg' %i, print_image)
         i += 1
     if i % 1000 == 0:
-        pickle.dump(np.array(images), open(cur_dir + '/screw_imgs/screw_imgs.pkl', 'wb'))
+        pickle.dump(np.array(images), open(cur_dir + '/screw_imgs_2/screw_imgs.pkl', 'wb'))

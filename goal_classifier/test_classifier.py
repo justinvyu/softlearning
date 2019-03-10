@@ -13,13 +13,12 @@ cnn = CNN(goal_cond=goal_cond)
 sess = tf.InteractiveSession()
 saver = tf.train.Saver()
 tf.global_variables_initializer().run()
-saver.restore(sess, cur_dir + "/screw_imgs/train/params.ckpt")
-import ipdb; ipdb.set_trace()
+saver.restore(sess, cur_dir + "/screw_imgs/train_scope/params.ckpt")
 
 from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
-print_tensors_in_checkpoint_file(cur_dir + "/screw_imgs/train/params.ckpt", all_tensors=False, tensor_name='')
+print_tensors_in_checkpoint_file(cur_dir + "/screw_imgs/train_scope/params.ckpt", all_tensors=False, tensor_name='')
 
-test_data = pickle.load(open(cur_dir + '/screw_imgs/screw_imgs.pkl', 'rb'))
+test_data = pickle.load(open(cur_dir + '/screw_imgs_2/screw_imgs.pkl', 'rb'))
 num_test = test_data.shape[0]
 test_images, test_pos = np.array(test_data[:,0].tolist()), test_data[:,1]
 

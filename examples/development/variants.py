@@ -143,7 +143,7 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
 
 ALGORITHM_PARAMS_PER_DOMAIN['DClaw3']['kwargs'].update({
     'her_iters': 0,
-    # 'goal_classifier_params_direc': '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train/params.ckpt',
+    'goal_classifier_params_direc': '', #'/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train_scope/params.ckpt',
 })
 
 class NegativeLogLossFn(object):
@@ -287,28 +287,28 @@ ENVIRONMENT_PARAMS = {
             'isHARDARE': False,
         },
         'ScrewV2': {
-            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (0, 0), #(-np.pi, np.pi),
+            'target_initial_position_range': (-np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (np.pi, np.pi), # (-np.pi, np.pi),
+            'object_initial_position_range': (0, 0),
             'reset_free': False,
         },
         'ImageScrewV2': {
             'is_hardware': False,
             'image_shape': (32, 32, 3),
-            'reset_free': True,
+            'reset_free': False,
             'goal_in_state': True,
             'pose_difference_cost_coeff': 1e-1,
             'joint_velocity_cost_coeff': 1e-1,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (-np.pi, np.pi),
+            'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-np.pi, np.pi),
+            'object_initial_position_range': (0, 0),
         }
     },
     'HardwareDClaw3': {
@@ -332,7 +332,8 @@ ENVIRONMENT_PARAMS = {
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (0, 0),
-            'hw_w_sim_imgs': True,
+            'hw_w_sim_imgs': False,
+            'save_eval_paths': True,
         },
     }
 }
