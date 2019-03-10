@@ -142,22 +142,36 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
 
 
 class NegativeLogLossFn(object):
-    def __init__(self, eps):
+    def __init__(self, eps, offset=0.0):
         self._eps = eps
+        self._offset = offset
 
     def __call__(self, object_target_distance):
-        return (
-            - np.log(object_target_distance + self._eps)
-            + np.log(np.pi + self._eps))
+        return - np.log(object_target_distance + self._eps) + self._offset
 
     def __str__(self):
-        return str(f'eps={self._eps:e}')
+        return (
+            f'NegativeLogLossFn(eps={self._eps:e},offset={self._offset:.3f})')
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self._eps == other._eps and self._offset == other._offset
+
+        return super(NegativeLogLossFn, self).__eq__(other)
+
+
+class LinearLossFn(object):
+    def __call__(self, object_target_distance):
+        return -object_target_distance
+
+    def __str__(self):
+        return str(f'LinearLossFn()')
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
             return self._eps == other._eps
 
-        return super(NegativeLogLossFn, self).__eq__(other)
+        return super(LinearLossFn, self).__eq__(other)
 
 
 ENVIRONMENT_PARAMS = {
