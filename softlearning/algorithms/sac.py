@@ -397,6 +397,10 @@ class SAC(RLAlgorithm):
             self._next_observations_ph: batch['next_observations'],
             self._terminals_ph: batch['terminals'],
         }
+        if self._goal_classifier:
+            feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])
+        else:
+            feed_dict[self._rewards_ph] = batch['rewards']
 
         if self._goal_classifier:
             feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])

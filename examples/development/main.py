@@ -5,6 +5,7 @@ import glob
 import pickle
 import sys
 
+
 import tensorflow as tf
 from ray import tune
 
@@ -16,7 +17,19 @@ from softlearning.samplers.utils import get_sampler_from_variant
 from softlearning.value_functions.utils import get_Q_function_from_variant
 
 from softlearning.misc.utils import set_seed, initialize_tf_variables
+<<<<<<< HEAD
 from examples.instrument import run_example_local
+=======
+
+from examples.utils import (
+    parse_universe_domain_task,
+    get_parser,
+    launch_experiments_ray)
+from examples.development.variants import (
+    get_variant_spec,
+    get_variant_spec_image)\
+
+>>>>>>> dd1cd9e8d0ec099695ffb3fdc1d2c7e6fff3b9f0
 
 
 class ExperimentRunner(tune.Trainable):
@@ -24,8 +37,12 @@ class ExperimentRunner(tune.Trainable):
         set_seed(variant['run_params']['seed'])
 
         self._variant = variant
+<<<<<<< HEAD
 
         gpu_options = tf.GPUOptions(allow_growth=True)
+=======
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
+>>>>>>> dd1cd9e8d0ec099695ffb3fdc1d2c7e6fff3b9f0
         session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
         tf.keras.backend.set_session(session)
         self._session = tf.keras.backend.get_session()
@@ -163,6 +180,7 @@ class ExperimentRunner(tune.Trainable):
         with self._session.as_default():
             pickle_path = self._pickle_path(checkpoint_dir)
             with open(pickle_path, 'rb') as f:
+<<<<<<< HEAD
                 picklable = pickle.load(f)
 
         training_environment = self.training_environment = picklable[
@@ -170,6 +188,23 @@ class ExperimentRunner(tune.Trainable):
         evaluation_environment = self.evaluation_environment = picklable[
             'evaluation_environment']
 
+=======
+                pickleable = pickle.load(f)
+
+        variant_diff = DeepDiff(self._variant, pickleable['variant'])
+
+        # if variant_diff:
+        #     print("Your current variant is different from the checkpointed"
+        #           " variable. Please make sure that the differences are"
+        #           " expected. Differences:")
+        #     pprint(variant_diff)
+        #
+        #     if not strtobool(
+        #             input("Continue despite the variant differences?\n")):
+        #         sys.exit(0)
+
+        env = self.env = pickleable['env']
+>>>>>>> dd1cd9e8d0ec099695ffb3fdc1d2c7e6fff3b9f0
         replay_pool = self.replay_pool = (
             get_replay_pool_from_variant(self._variant, training_environment))
 

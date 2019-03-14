@@ -288,6 +288,59 @@ ENVIRONMENT_PARAMS = {
             'hw_w_sim_imgs': False,
             'save_eval_paths': True,
         },
+    },
+    'DClaw3': {
+        'ScrewV0': {  # 6 DoF
+            'isHARDARE': False,
+        },
+        'ScrewV2': {
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (0, 0), #(-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (np.pi, np.pi), # (-np.pi, np.pi),
+            'reset_free': False,
+        },
+        'ImageScrewV2': {
+            'is_hardware': False,
+            'image_shape': (32, 32, 3),
+            'reset_free': True,
+            'goal_in_state': True,
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (-np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+        }
+    },
+    'HardwareDClaw3': {
+        'ScrewV2': {
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+        },
+        'ImageScrewV2': {
+            'image_shape': (32, 32, 3),
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'pose_difference_cost_coeff': 1e-1,
+            'joint_velocity_cost_coeff': 1e-1,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+            'hw_w_sim_imgs': True,
+        },
     }
 }
 
