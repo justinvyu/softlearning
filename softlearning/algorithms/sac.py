@@ -204,15 +204,13 @@ class SAC(RLAlgorithm):
         saver = tf.train.Saver(cnn_vars)
         saver.restore(self._session, goal_classifier_params_direc)
 
-    def _classify_as_goals(self, observations):
+    def _classify_as_goals(self, images, goals):
         # NOTE: we can choose any goals we want.
         # Things to try:
         # - random goal
         # - single goal
-        images = observations[:, :32*32*3].reshape((-1, 32, 32, 3))
-        # images = ((images + 1)*255/2).astype('uint8') # unnormalize images
         feed_dict = {self._goal_classifier.images: images,
-            self._goal_classifier.goals: observations[:,-1].reshape((-1, 1))}
+            self._goal_classifier.goals: goals}
         # lid_pos = observations[:, -2]
         goal_probs = self._session.run(self._goal_classifier.pred_probs, feed_dict=feed_dict)[:, 1].reshape((-1, 1))
         return goal_probs
@@ -397,13 +395,16 @@ class SAC(RLAlgorithm):
             self._next_observations_ph: batch['next_observations'],
             self._terminals_ph: batch['terminals'],
         }
-        if self._goal_classifier:
-            feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])
-        else:
-            feed_dict[self._rewards_ph] = batch['rewards']
 
         if self._goal_classifier:
-            feed_dict[self._rewards_ph] = self._classify_as_goals(batch['observations'])
+            if 'images' in batch.keys():
+                images = batch['images']
+                goal_sin = batch['observations'][:,-2].reshape((-1, 1))
+                goal_cos = batch['observations'][:,-1].reshape((-1, 1))
+                goals = np.arctan2(goal_sin, goal_cos)
+            else:
+                images = batch['observations'][:, :32*32*3].reshape((-1, 32, 32, 3))
+            feed_dict[self._rewards_ph] = self._classify_as_goals(images, goals)
         else:
             feed_dict[self._rewards_ph] = batch['rewards']
 
@@ -425,7 +426,6 @@ class SAC(RLAlgorithm):
 
         new_batch_obs = self._base_env.relabel_obs_w_goal(batch_obs, new_goal)
         # Q: this is probably bad if I am referring to an env that is sampling?
-        # import ipdb; ipdb.set_trace()
         self._base_env.set_goal(new_goal)
         new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
         self._base_env.set_goal(old_goal)

@@ -38,7 +38,6 @@ DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
     'DClaw3': tune.grid_search([200]),
-    'ImageDClaw3': 200,
     'HardwareDClaw3': 200,
     'Pendulum': 200,
     'Pusher2d': 100,
@@ -140,10 +139,6 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
     }
 }
 
-ALGORITHM_PARAMS_PER_DOMAIN['DClaw3']['kwargs'].update({
-    'her_iters': 0,
-    'goal_classifier_params_direc': '', #'/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train_scope/params.ckpt',
-})
 
 class NegativeLogLossFn(object):
     def __init__(self, eps, offset=0.0):
@@ -262,6 +257,21 @@ ENVIRONMENT_PARAMS = {
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (0, 0),
+        },
+        'InfoScrewV2-v0': {
+            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'is_hardware': False,
+            'image_shape': (32, 32, 3),
+            'reset_free': False,
+            # 'goal_in_state': True,
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
+            'joint_acceleration_cost_coeff': 0,
+            'target_initial_velocity_range': (0, 0),
+            'target_initial_position_range': (np.pi, np.pi),
+            'object_initial_velocity_range': (0, 0),
+            'object_initial_position_range': (0, 0),
+            # 'add_non_encoded_observations': True,
         }
     },
     'HardwareDClaw3': {
@@ -289,59 +299,6 @@ ENVIRONMENT_PARAMS = {
             'save_eval_paths': True,
         },
     },
-    'DClaw3': {
-        'ScrewV0': {  # 6 DoF
-            'isHARDARE': False,
-        },
-        'ScrewV2': {
-            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (0, 0), #(-np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (np.pi, np.pi), # (-np.pi, np.pi),
-            'reset_free': False,
-        },
-        'ImageScrewV2': {
-            'is_hardware': False,
-            'image_shape': (32, 32, 3),
-            'reset_free': True,
-            'goal_in_state': True,
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (-np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-np.pi, np.pi),
-        }
-    },
-    'HardwareDClaw3': {
-        'ScrewV2': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (0, 0),
-        },
-        'ImageScrewV2': {
-            'image_shape': (32, 32, 3),
-            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (0, 0),
-            'hw_w_sim_imgs': True,
-        },
-    }
 }
 
 NUM_CHECKPOINTS = 10
@@ -358,12 +315,11 @@ SAMPLER_PARAMS_PER_DOMAIN = {
 def get_variant_spec_base(universe, domain, task, policy, algorithm):
     algorithm_params = deep_update(
         ALGORITHM_PARAMS_BASE,
+        ALGORITHM_PARAMS_ADDITIONAL.get(algorithm, {}),
         ALGORITHM_PARAMS_PER_DOMAIN.get(domain, {})
     )
-    algorithm_params = deep_update(
-        algorithm_params,
-        ALGORITHM_PARAMS_ADDITIONAL.get(algorithm, {})
-    )
+    if task == 'InfoScrewV2-v0':
+        algorithm_params['kwargs']['goal_classifier_params_direc'] = '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train_scope/params.ckpt'
     variant_spec = {
         'git_sha': get_git_rev(),
 
@@ -433,6 +389,8 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
         },
     }
 
+    if task == 'InfoScrewV2-v0':
+        variant_spec['sampler_params']['kwargs']['include_images'] = True
     return variant_spec
 
 
@@ -447,7 +405,6 @@ def get_variant_spec_image(universe,
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        import ipdb; ipdb.set_trace()
         preprocessor_params = {
             'type': 'convnet_preprocessor',
             'kwargs': {
@@ -458,10 +415,10 @@ def get_variant_spec_image(universe,
                     ['kwargs']
                     ['image_shape']),
                 'output_size': M,
-                'num_conv_layers': tune.grid_search([2, 3]),
-                'num_filters_per_layer': tune.grid_search([4, 8, 16, 32]),
+                'num_conv_layers': tune.grid_search([3]),
+                'num_filters_per_layer': tune.grid_search([8]),
                 'pool_type': 'AvgPool2D',
-                'pool_size': tune.grid_search([2, 3]),
+                'pool_size': tune.grid_search([2]),
                 'dense_hidden_layer_sizes': (),
             },
         }

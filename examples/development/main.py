@@ -17,19 +17,7 @@ from softlearning.samplers.utils import get_sampler_from_variant
 from softlearning.value_functions.utils import get_Q_function_from_variant
 
 from softlearning.misc.utils import set_seed, initialize_tf_variables
-<<<<<<< HEAD
 from examples.instrument import run_example_local
-=======
-
-from examples.utils import (
-    parse_universe_domain_task,
-    get_parser,
-    launch_experiments_ray)
-from examples.development.variants import (
-    get_variant_spec,
-    get_variant_spec_image)\
-
->>>>>>> dd1cd9e8d0ec099695ffb3fdc1d2c7e6fff3b9f0
 
 
 class ExperimentRunner(tune.Trainable):

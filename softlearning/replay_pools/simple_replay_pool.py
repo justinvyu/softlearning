@@ -34,7 +34,7 @@ def normalize_observation_fields(observation_space, name='observations'):
 
 
 class SimpleReplayPool(FlexibleReplayPool):
-    def __init__(self, observation_space, action_space, *args, **kwargs):
+    def __init__(self, observation_space, action_space, include_images=False, *args, **kwargs):
         self._observation_space = observation_space
         self._action_space = action_space
 
@@ -66,10 +66,27 @@ class SimpleReplayPool(FlexibleReplayPool):
             }
         }
 
+        if include_images:
+            fields = {
+                **fields,
+                'images': {
+                    'shape':(32,32,3),
+                    'dtype': 'float32'
+                },
+            }
+
+
         super(SimpleReplayPool, self).__init__(
             *args, fields_attrs=fields, **kwargs)
 
     def add_samples(self, samples):
+        try:
+            samples['images'] = np.array([
+                info['image']
+                for info in samples['infos']
+                ])
+        except:
+            pass
         if not isinstance(self._observation_space, Dict):
             return super(SimpleReplayPool, self).add_samples(samples)
 
