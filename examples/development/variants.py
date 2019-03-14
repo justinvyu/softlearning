@@ -49,7 +49,7 @@ ALGORITHM_PARAMS_BASE = {
     'kwargs': {
         'epoch_length': 1000,
         'train_every_n_steps': 1,
-        'n_train_repeat': tune.grid_search([1, 3, 5, 10]),
+        'n_train_repeat': tune.grid_search([1]),
         'eval_render_mode': None,
         'eval_n_episodes': 3, # num of eval rollouts
         'eval_deterministic': True,
@@ -73,7 +73,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(1e3),
-            'her_iters': 0,
+            'her_iters': tune.grid_search([0]),
         }
     },
     'SQL': {
@@ -378,11 +378,11 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
             'seed': tune.sample_from(
                 lambda spec: np.random.randint(0, 10000)),
             'checkpoint_at_end': True,
-            'checkpoint_frequency': lambda spec: (
+            'checkpoint_frequency': tune.sample_from(lambda spec: (
                 25000 // (spec.get('config', spec)
                           ['algorithm_params']
                           ['kwargs']
-                          ['epoch_length'])
+                          ['epoch_length']))
             ),
             # NUM_EPOCHS_PER_DOMAIN.get(
             #     domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
