@@ -37,9 +37,9 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
-    'DClaw3': 100,
-    'ImageDClaw3': 100,
-    'HardwareDClaw3': 100,
+    'DClaw3': tune.grid_search([200]),
+    'ImageDClaw3': 200,
+    'HardwareDClaw3': 200,
     'Pendulum': 200,
     'Pusher2d': 100,
 }
@@ -50,7 +50,7 @@ ALGORITHM_PARAMS_BASE = {
     'kwargs': {
         'epoch_length': 1000,
         'train_every_n_steps': 1,
-        'n_train_repeat': 1,
+        'n_train_repeat': tune.grid_search([1, 3, 5, 10]),
         'eval_render_mode': None,
         'eval_n_episodes': 3, # num of eval rollouts
         'eval_deterministic': True,
@@ -120,7 +120,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
-    'DClaw3': int(100),
+    'DClaw3': int(300),
     'ImageDClaw3': int(300),
     'HardwareDClaw3': int(100),
     'Pendulum': 10,
@@ -132,10 +132,9 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
             'kwargs': {
                 'n_epochs': NUM_EPOCHS_PER_DOMAIN.get(
                     domain, DEFAULT_NUM_EPOCHS),
-                'n_initial_exploration_steps': (
-                    MAX_PATH_LENGTH_PER_DOMAIN.get(
-                        domain, DEFAULT_MAX_PATH_LENGTH
-                    ) * 10),
+                'n_initial_exploration_steps': tune.sample_from(lambda spec:(
+                    10*spec.get('config', spec)['sampler_params']['kwargs']['max_path_length']
+                ))
             }
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
@@ -228,52 +227,6 @@ ENVIRONMENT_PARAMS = {
             'arm_object_distance_cost_coeff': 0.0,
         }
     },
-    'DClaw3': {
-        'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0,
-            'joint_velocity_cost_coeff': 0,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-np.pi, np.pi),
-        },
-        'ImageScrewV2-v0': {
-            'image_shape': (32, 32, 3),
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0,
-            'joint_velocity_cost_coeff': 0,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-np.pi, np.pi),
-        }
-    },
-    'HardwareDClaw3': {
-        'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0,
-            'joint_velocity_cost_coeff': 0,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-1.98, -1.98 + 2 * np.pi),
-        },
-        'ImageScrewV2-v0': {
-            'image_shape': (32, 32, 3),
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 0,
-            'joint_velocity_cost_coeff': 0,
-            'joint_acceleration_cost_coeff': 0,
-            'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
-            'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (-1.98, -1.98 + 2 * np.pi),
-        },
-    },
     'Point2DEnv': {
         'Default-v0': {
             'observation_keys': ('observation', 'desired_goal'),
@@ -283,10 +236,10 @@ ENVIRONMENT_PARAMS = {
         },
     },
     'DClaw3': {
-        'ScrewV0': {  # 6 DoF
+        'ScrewV0-v0': {  # 6 DoF
             'isHARDARE': False,
         },
-        'ScrewV2': {
+        'ScrewV2-v0': {
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
@@ -297,13 +250,13 @@ ENVIRONMENT_PARAMS = {
             'object_initial_position_range': (0, 0),
             'reset_free': False,
         },
-        'ImageScrewV2': {
+        'ImageScrewV2-v0': {
             'is_hardware': False,
             'image_shape': (32, 32, 3),
             'reset_free': False,
-            'goal_in_state': True,
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            # 'goal_in_state': True,
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
@@ -312,17 +265,17 @@ ENVIRONMENT_PARAMS = {
         }
     },
     'HardwareDClaw3': {
-        'ScrewV2': {
+        'ScrewV2-v0': {
             'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (0, 0),
         },
-        'ImageScrewV2': {
+        'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
             # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'pose_difference_cost_coeff': 1e-1,
@@ -441,13 +394,15 @@ def get_variant_spec_image(universe,
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
+        import ipdb; ipdb.set_trace()
         preprocessor_params = {
             'type': 'convnet_preprocessor',
             'kwargs': {
                 'image_shape': (
                     variant_spec
-                    ['training']
                     ['environment_params']
+                    ['training']
+                    ['kwargs']
                     ['image_shape']),
                 'output_size': M,
                 'num_conv_layers': tune.grid_search([2, 3]),

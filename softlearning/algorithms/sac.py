@@ -101,7 +101,7 @@ class SAC(RLAlgorithm):
         self._store_extra_policy_info = store_extra_policy_info
 
         self._her_iters = her_iters
-        self._base_env = env._env.env
+        self._base_env = training_environment._env.env
 
         self._save_full_state = save_full_state
         self._save_eval_paths = save_eval_paths
@@ -194,30 +194,15 @@ class SAC(RLAlgorithm):
             )
     def _load_goal_classifier(self, goal_classifier_params_direc):
         import sys
-        # import ipdb; ipdb.set_trace()
         from goal_classifier.conv import CNN
-        # tf.reset_default_graph()
-        # with tf.Graph().as_default() as g:
-        #     with g.name_scope('goal_classifier') as scope:
         from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
-        print_tensors_in_checkpoint_file(goal_classifier_params_direc, all_tensors=False, tensor_name='')
-        # with tf.variable_scope('goal_classifier'):
+
+        # print_tensors_in_checkpoint_file(goal_classifier_params_direc, all_tensors=False, tensor_name='')
         self._goal_classifier = CNN(goal_cond=True)
         variables = self._goal_classifier.get_variables()
         cnn_vars = [v for v in tf.trainable_variables() if v.name.split('/')[0] == 'goal_classifier']
-        # import ipdb; ipdb.set_trace()
         saver = tf.train.Saver(cnn_vars)
         saver.restore(self._session, goal_classifier_params_direc)
-        # with tf.Graph().as_default():
-        #     saver = tf.train.Saver()
-        #     # saver = tf.train.import_meta_graph('/tmp/foo.meta')
-        #     with self._session as sess:
-        #       # saver.restore(sess, tf.train.latest_checkpoint('/tmp'))
-
-              # graph = tf.get_default_graph()
-              # print(graph.get_tensor_by_name("W_conv1:0"))
-
-        # tf.trainable_variables()
 
     def _classify_as_goals(self, observations):
         # NOTE: we can choose any goals we want.
@@ -392,6 +377,8 @@ class SAC(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
         self._session.run(self._training_ops, feed_dict)
         if self._her_iters:
+            # Q: Is it better to build a large batch and take one grad step, or
+            # resample many mini batches and take many grad steps?
             new_batches = {}
             for _ in range(self._her_iters):
                 new_batch = self._get_goal_resamp_batch(batch)
@@ -433,6 +420,8 @@ class SAC(RLAlgorithm):
         batch_next_obs = batch['next_observations']
 
         new_batch_obs = self._base_env.relabel_obs_w_goal(batch_obs, new_goal)
+        # Q: this is probably bad if I am referring to an env that is sampling?
+        # import ipdb; ipdb.set_trace()
         self._base_env.set_goal(new_goal)
         new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
         self._base_env.set_goal(old_goal)
