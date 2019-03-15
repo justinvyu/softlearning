@@ -4,7 +4,7 @@ from copy import deepcopy
 def get_convnet_preprocessor(observation_space,
                              name='convnet_preprocessor',
                              **kwargs):
-    from .convnet import ConvnetPreprocessor
+    from .convnet_preprocessor import ConvnetPreprocessor
 
     num_conv_layers = kwargs.pop('num_conv_layers')
     num_filters_per_layer = kwargs.pop('num_filters_per_layer')
