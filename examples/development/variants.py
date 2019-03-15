@@ -375,7 +375,7 @@ def get_variant_spec_image(universe,
 
     if 'image' in task.lower() or 'image' in domain.lower():
         preprocessor_params = {
-            'type': 'convnet_preprocessor',
+            'type': 'ConvnetPreprocessor',
             'kwargs': {
                 'image_shape': (
                     variant_spec

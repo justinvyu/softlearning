@@ -22,7 +22,7 @@ def feedforward_model(input_shapes,
         preprocessors = (None, ) * len(inputs)
 
     preprocessed_inputs = [
-        preprocessor(input_) if preprocessor is not None else input_
+        preprocessor.transform(input_) if preprocessor is not None else input_
         for preprocessor, input_ in zip(preprocessors, inputs)
     ]
 

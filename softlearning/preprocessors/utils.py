@@ -1,10 +1,10 @@
 from copy import deepcopy
 
 
-def get_convnet_preprocessor(observation_shape,
+def get_convnet_preprocessor(observation_space,
                              name='convnet_preprocessor',
                              **kwargs):
-    from .convnet import convnet_preprocessor
+    from .convnet import ConvnetPreprocessor
 
     num_conv_layers = kwargs.pop('num_conv_layers')
     num_filters_per_layer = kwargs.pop('num_filters_per_layer')
@@ -17,25 +17,27 @@ def get_convnet_preprocessor(observation_shape,
         'pool_strides': (pool_size, ) * num_conv_layers,
     })
 
-    preprocessor = convnet_preprocessor(
-        input_shapes=(observation_shape, ), name=name, **kwargs)
+    preprocessor = ConvnetPreprocessor(
+        observation_space=observation_space, name=name, **kwargs)
 
     return preprocessor
 
 
-def get_feedforward_preprocessor(observation_shape,
+def get_feedforward_preprocessor(observation_space,
                                  name='feedforward_preprocessor',
                                  **kwargs):
-    from softlearning.models.feedforward import feedforward_model
-    preprocessor = feedforward_model(
-        input_shapes=(observation_shape, ), name=name, **kwargs)
+    from .feedforward_preprocessor import FeedforwardPreprocessor
+    preprocessor = FeedforwardPreprocessor(
+        observation_space=observation_space, name=name, **kwargs)
+
+    return preprocessor
 
     return preprocessor
 
 
 PREPROCESSOR_FUNCTIONS = {
-    'convnet_preprocessor': get_convnet_preprocessor,
-    'feedforward_preprocessor': get_feedforward_preprocessor,
+    'ConvnetPreprocessor': get_convnet_preprocessor,
+    'FeedforwardPreprocessor': get_feedforward_preprocessor,
     None: lambda *args, **kwargs: None
 }
 
@@ -52,7 +54,7 @@ def get_preprocessor_from_params(env, preprocessor_params, *args, **kwargs):
 
     preprocessor = PREPROCESSOR_FUNCTIONS[
         preprocessor_type](
-            env.active_observation_shape,
+            env.observation_space,
             *args,
             **preprocessor_kwargs,
             **kwargs)

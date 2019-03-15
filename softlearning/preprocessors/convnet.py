@@ -1,7 +1,10 @@
 import tensorflow as tf
+from gym import spaces
 
 from softlearning.models.feedforward import feedforward_model
 from softlearning.utils.keras import PicklableKerasModel
+
+from .base_preprocessor import BasePreprocessor
 
 
 def convnet_preprocessor(
@@ -75,3 +78,22 @@ def convnet_preprocessor(
     model = PicklableKerasModel(inputs, output, name=name)
 
     return model
+
+
+class ConvnetPreprocessor(BasePreprocessor):
+    def __init__(self, observation_space, output_size, *args, **kwargs):
+        super(ConvnetPreprocessor, self).__init__(
+            observation_space, output_size)
+
+        assert isinstance(observation_space, spaces.Box)
+        input_shapes = (observation_space.shape, )
+
+        self._convnet = convnet_preprocessor(
+            input_shapes=input_shapes,
+            output_size=output_size,
+            *args,
+            **kwargs)
+
+    def transform(self, observation):
+        transformed = self._convnet(observation)
+        return transformed
