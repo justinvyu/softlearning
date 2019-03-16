@@ -65,7 +65,6 @@ class SimpleReplayPool(FlexibleReplayPool):
                 },
             }
         }
-
         if include_images:
             fields = {
                 **fields,

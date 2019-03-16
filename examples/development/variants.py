@@ -390,7 +390,7 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
     }
 
     if task == 'InfoScrewV2-v0':
-        variant_spec['sampler_params']['kwargs']['include_images'] = True
+        variant_spec['replay_pool_params']['kwargs']['include_images'] = True
     return variant_spec
 
 
