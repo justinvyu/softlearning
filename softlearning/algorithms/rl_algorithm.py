@@ -328,13 +328,13 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
         import time
         t0 = time.time()
         self._training_batch()
-        print('get training batch: ', time.time() - t0)
+        # print('get training batch: ', time.time() - t0)
         t0 = time.time()
         for i in range(self._n_train_repeat):
             self._do_training(
                 iteration=timestep,
                 batch=self._training_batch())
-        print('n train repeat: ', time.time() - t0)
+        # print('n train repeat: ', time.time() - t0)
 
         self._num_train_steps += self._n_train_repeat
         self._train_steps_this_epoch += self._n_train_repeat
