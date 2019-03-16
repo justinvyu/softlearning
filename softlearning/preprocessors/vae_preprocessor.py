@@ -37,11 +37,21 @@ def make_encoder(input_shape, latent_size, base_depth, beta=1.0):
         shape=input_shape, name='encoder_input')
     out = input_layer
 
-    out = conv(filters=base_depth, kernel_size=5, strides=1)(out)
-    out = conv(filters=base_depth, kernel_size=5, strides=2)(out)
-    out = conv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
-    out = conv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
-    out = conv(filters=4 * latent_size, kernel_size=8, padding="VALID")(out)
+    # out = conv(filters=base_depth, kernel_size=5, strides=1)(out)
+    # out = conv(filters=base_depth, kernel_size=5, strides=2)(out)
+    # out = conv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
+    # out = conv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
+    # out = conv(filters=4 * latent_size, kernel_size=8, padding="VALID")(out)
+
+    for i in range(2):
+        out = tf.keras.layers.Conv2D(
+            filters=8,
+            kernel_size=5,
+            strides=1,
+            padding="SAME",
+            activation=tf.nn.relu,
+        )(out)
+        out = tf.keras.layers.MaxPool2D(pool_size=2, strides=2)(out)
 
     out = tf.keras.layers.Flatten()(out)
     shift_and_log_scale_diag = tf.keras.layers.Dense(
@@ -73,17 +83,36 @@ def make_decoder(latent_size, output_shape, base_depth):
 
     input_layer = tf.keras.layers.Input(
         shape=(latent_size, ), name='decoder_input')
+    out = tf.keras.layers.Dense(latent_size, activation=None)(input_layer)
+
     # Collapse the sample and batch dimension and convert to rank-4 tensor for
     # use with a convolutional decoder network.
-    codes = tf.keras.layers.Reshape((1, 1, latent_size))(input_layer)
+    codes = tf.keras.layers.Reshape((8, 8, latent_size//(8*8)))(out)
     out = codes
 
-    out = deconv(filters=2 * base_depth, kernel_size=8, padding="VALID")(out)
-    out = deconv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
-    out = deconv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
-    out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
-    out = deconv(filters=base_depth, kernel_size=5, strides=2)(out)
-    out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
+    for i in range(2):
+        out = tf.keras.layers.Conv2DTranspose(
+            filters=8,
+            kernel_size=5,
+            strides=2,
+            padding="SAME",
+            activation=tf.nn.relu,
+        )(out)
+
+    # out = tf.keras.layers.Conv2DTranspose(
+    #     filters=3,
+    #     kernel_size=5,
+    #     strides=1,
+    #     padding="SAME",
+    #     activation=tf.nn.relu,
+    # )(out)
+
+    # out = deconv(filters=2 * base_depth, kernel_size=8, padding="VALID")(out)
+    # out = deconv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
+    # out = deconv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
+    # out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
+    # out = deconv(filters=base_depth, kernel_size=5, strides=2)(out)
+    # out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
 
     out = conv(filters=output_shape[-1], kernel_size=5, activation=None)(out)
 
