@@ -484,6 +484,33 @@ def get_variant_spec_image(universe,
             )))
         variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
 
+    # if 'image' in task.lower() or 'image' in domain.lower():
+    #     preprocessor_params = {
+    #         'type': 'VAEPreprocessor',
+    #         'kwargs': {
+    #             'image_shape': (
+    #                 variant_spec
+    #                 ['environment_params']
+    #                 ['training']
+    #                 ['kwargs']
+    #                 ['image_shape']),
+    #             'output_size': 16,
+    #             'beta': 1.0,
+    #         },
+    #     }
+    #     variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
+    #     variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
+    #         preprocessor_params.copy())
+
+    #     variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
+    #         tune.sample_from(lambda spec: (
+    #             spec.get('config', spec)
+    #             ['policy_params']
+    #             ['kwargs']
+    #             ['preprocessor_params']
+    #         )))
+    #     variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
+
     return variant_spec
 
 
