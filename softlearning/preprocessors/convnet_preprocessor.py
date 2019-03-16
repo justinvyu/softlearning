@@ -19,6 +19,7 @@ def convnet_preprocessor(
         dense_hidden_layer_sizes=(64, 64),
         data_format='channels_last',
         name="convnet_preprocessor",
+        use_batch_norm=False,
         make_picklable=True,
         *args,
         **kwargs):
@@ -42,22 +43,29 @@ def convnet_preprocessor(
 
     images = tf.keras.layers.Reshape(image_shape)(images_flat)
 
-    conv_out = images
+    out = images
     for filters, kernel_size, pool_size, strides in zip(
             conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
-        conv_out = tf.keras.layers.Conv2D(
+        out = tf.keras.layers.Conv2D(
             filters=filters,
             kernel_size=kernel_size,
             padding="SAME",
-            activation=tf.nn.relu,
+            activation='linear',
             *args,
             **kwargs
-        )(conv_out)
-        conv_out = getattr(tf.keras.layers, pool_type)(
-            pool_size=pool_size, strides=strides
-        )(conv_out)
+        )(out)
 
-    flattened = tf.keras.layers.Flatten()(conv_out)
+        if use_batch_norm:
+            out = tf.keras.layers.BatchNormalization()(out)
+
+        out = tf.keras.layers.LeakyReLU()(out)
+
+        if pool_size > 0:
+            out = getattr(tf.keras.layers, pool_type)(
+                pool_size=pool_size, strides=strides
+            )(out)
+
+    flattened = tf.keras.layers.Flatten()(out)
     concatenated_output = tf.keras.layers.Lambda(
         lambda x: tf.concat(x, axis=-1)
     )([flattened, input_raw])
