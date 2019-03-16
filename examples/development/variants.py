@@ -374,23 +374,103 @@ def get_variant_spec_image(universe,
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_params = {
-            'type': 'ConvnetPreprocessor',
-            'kwargs': {
-                'image_shape': (
-                    variant_spec
-                    ['environment_params']
-                    ['training']
-                    ['kwargs']
-                    ['image_shape']),
-                'output_size': M,
-                'num_conv_layers': tune.grid_search([2, 3]),
-                'num_filters_per_layer': tune.grid_search([4, 8, 16, 32]),
-                'pool_type': 'AvgPool2D',
-                'pool_size': tune.grid_search([2, 3]),
-                'dense_hidden_layer_sizes': (),
+        preprocessor_params = tune.grid_search([
+            {
+                'type': 'ConvnetPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'conv_filters': (4, 8, 16),
+                    'conv_kernel_sizes': (3, 3, 3),
+                    'pool_sizes': (2, 2, 2),
+                    'pool_strides': (2, 2, 2),
+                    'pool_type': 'MaxPool2D',
+                    'use_batch_norm': True,
+                    'dense_hidden_layer_sizes': (),
+                },
             },
-        }
+            {
+                'type': 'ConvnetPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'conv_filters': (16, 8, 4),
+                    'conv_kernel_sizes': (3, 3, 3),
+                    'pool_sizes': (2, 2, 2),
+                    'pool_strides': (2, 2, 2),
+                    'pool_type': 'MaxPool2D',
+                    'use_batch_norm': False,
+                    'dense_hidden_layer_sizes': (),
+                },
+            },
+            {
+                'type': 'ConvnetPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'conv_filters': (8, 16, 32),
+                    'conv_kernel_sizes': (3, 3, 3),
+                    'pool_sizes': (2, 2, 2),
+                    'pool_strides': (2, 2, 2),
+                    'pool_type': 'MaxPool2D',
+                    'use_batch_norm': False,
+                    'dense_hidden_layer_sizes': (),
+                },
+            },
+            {
+                'type': 'ConvnetPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'conv_filters': (32, 16, 8),
+                    'conv_kernel_sizes': (3, 3, 3),
+                    'pool_sizes': (2, 2, 2),
+                    'pool_strides': (2, 2, 2),
+                    'pool_type': 'MaxPool2D',
+                    'use_batch_norm': False,
+                    'dense_hidden_layer_sizes': (),
+                },
+            },
+            {
+                'type': 'ConvnetPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'conv_filters': (8, 8, 16, 16, 32, 32),
+                    'conv_kernel_sizes': (3, 3, 3, 3, 3, 3),
+                    'pool_sizes': (0, 2, 0, 2, 0, 2),
+                    'pool_strides': (0, 2, 0, 2, 0, 2),
+                    'pool_type': 'MaxPool2D',
+                    'use_batch_norm': False,
+                    'dense_hidden_layer_sizes': (),
+                },
+            }
+        ])
         variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
