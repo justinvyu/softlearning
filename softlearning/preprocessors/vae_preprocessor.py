@@ -43,17 +43,25 @@ def make_encoder(input_shape, latent_size, base_depth, beta=1.0):
     # out = conv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
     # out = conv(filters=4 * latent_size, kernel_size=8, padding="VALID")(out)
 
-    for i in range(2):
+    conv_filters = (16, 16, 16)
+    conv_kernel_sizes = (3, 3, 3)
+    pool_sizes = (2, 2, 2)
+    pool_strides = (2, 2, 2)
+    pool_type = 'MaxPool2D'
+
+    for filters, kernel_size, pool_size, strides in zip(
+            conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
         out = tf.keras.layers.Conv2D(
-            filters=8,
-            kernel_size=5,
-            strides=1,
+            filters=filters,
+            kernel_size=kernel_size,
             padding="SAME",
             activation=tf.nn.relu,
         )(out)
-        out = tf.keras.layers.MaxPool2D(pool_size=2, strides=2)(out)
+        out = getattr(tf.keras.layers, pool_type)(
+            pool_size=pool_size, strides=strides
+        )(out)
 
-    out = tf.keras.layers.Flatten()(out)
+    out = tf.keras.layers.Flatten()(out)  # 4x4x16 -> 256
     shift_and_log_scale_diag = tf.keras.layers.Dense(
         2 * latent_size, activation=None
     )(out)
@@ -83,29 +91,32 @@ def make_decoder(latent_size, output_shape, base_depth):
 
     input_layer = tf.keras.layers.Input(
         shape=(latent_size, ), name='decoder_input')
-    out = tf.keras.layers.Dense(latent_size, activation=None)(input_layer)
+
+    out = tf.keras.layers.Dense(
+        (output_shape[0] // (2 ** 3)) ** 2 * 16,
+        activation=None
+    )(input_layer)
 
     # Collapse the sample and batch dimension and convert to rank-4 tensor for
     # use with a convolutional decoder network.
-    codes = tf.keras.layers.Reshape((8, 8, latent_size//(8*8)))(out)
+    codes = tf.keras.layers.Reshape((4, 4, latent_size))(out)
     out = codes
 
-    for i in range(2):
+    conv_filters = (16, 16, 16)
+    conv_kernel_sizes = (3, 3, 3)
+    pool_sizes = (2, 2, 2)
+    pool_strides = (2, 2, 2)
+    pool_type = 'MaxPool2D'
+
+    for filters, kernel_size, pool_size, strides in zip(
+            conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
         out = tf.keras.layers.Conv2DTranspose(
-            filters=8,
-            kernel_size=5,
-            strides=2,
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
             padding="SAME",
             activation=tf.nn.relu,
         )(out)
-
-    # out = tf.keras.layers.Conv2DTranspose(
-    #     filters=3,
-    #     kernel_size=5,
-    #     strides=1,
-    #     padding="SAME",
-    #     activation=tf.nn.relu,
-    # )(out)
 
     # out = deconv(filters=2 * base_depth, kernel_size=8, padding="VALID")(out)
     # out = deconv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
