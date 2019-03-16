@@ -6,16 +6,17 @@ def get_convnet_preprocessor(observation_space,
                              **kwargs):
     from .convnet_preprocessor import ConvnetPreprocessor
 
-    num_conv_layers = kwargs.pop('num_conv_layers')
-    num_filters_per_layer = kwargs.pop('num_filters_per_layer')
-    pool_size = kwargs.pop('pool_size')
+    if 'num_conv_layers' in kwargs:
+        num_conv_layers = kwargs.pop('num_conv_layers')
+        num_filters_per_layer = kwargs.pop('num_filters_per_layer')
+        pool_size = kwargs.pop('pool_size')
 
-    kwargs.update({
-        'conv_filters': (num_filters_per_layer, ) * num_conv_layers,
-        'conv_kernel_sizes': ((3, 3), ) * num_conv_layers,
-        'pool_sizes': ((pool_size, pool_size), ) * num_conv_layers,
-        'pool_strides': (pool_size, ) * num_conv_layers,
-    })
+        kwargs.update({
+            'conv_filters': (num_filters_per_layer, ) * num_conv_layers,
+            'conv_kernel_sizes': ((3, 3), ) * num_conv_layers,
+            'pool_sizes': ((pool_size, pool_size), ) * num_conv_layers,
+            'pool_strides': (pool_size, ) * num_conv_layers,
+        })
 
     preprocessor = ConvnetPreprocessor(
         observation_space=observation_space, name=name, **kwargs)
