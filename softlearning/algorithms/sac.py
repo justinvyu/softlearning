@@ -116,6 +116,7 @@ class SAC(RLAlgorithm):
         self._init_placeholders()
         self._init_actor_update()
         self._init_critic_update()
+        self._init_preprocessor_update()
 
     def train(self, *args, **kwargs):
         """Initiate training of the SAC instance."""
@@ -309,6 +310,46 @@ class SAC(RLAlgorithm):
             var_list=self._policy.trainable_variables)
 
         self._training_ops.update({'policy_train_op': policy_train_op})
+
+    def _init_preprocessor_update(self):
+        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
+            vae = self._policy._preprocessor.vae
+            encoder = vae.get_layer('encoder')
+            image_shape = self._policy._preprocessor.image_shape
+
+            loss_inputs = tf.reshape(
+                self._observations_ph[:, :np.prod(image_shape)],
+                (-1, *image_shape))
+            loss_outputs = vae(loss_inputs)
+
+            z_mean, z_log_var = encoder(loss_inputs)[:2]
+
+            self.loss_inputs = loss_inputs
+            self.loss_outputs = loss_outputs
+
+            reconstruction_loss = tf.keras.losses.binary_crossentropy(
+                loss_inputs, loss_outputs)
+
+            reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
+            reconstruction_loss *= np.prod(image_shape)
+            reconstruction_loss = self.reconstruction_loss = (
+                tf.reduce_mean(reconstruction_loss))
+            kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+            kl_loss = tf.reduce_sum(kl_loss, axis=-1)
+            kl_loss *= -0.5
+            kl_loss = self.kl_loss = tf.reduce_mean(kl_loss)
+
+            vae_loss = reconstruction_loss + kl_loss
+
+            vae_optimizer = tf.train.AdamOptimizer(
+                learning_rate=self._policy_lr,
+                name="vae_optimizer")
+
+            vae_train_op = vae_optimizer.minimize(
+                loss=vae_loss,
+                var_list=vae.trainable_variables)
+
+            self._training_ops.update({'vae_train_op': vae_train_op})
 
     def _init_training(self):
         self._update_target(tau=1.0)
