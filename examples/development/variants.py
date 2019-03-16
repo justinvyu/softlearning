@@ -37,7 +37,7 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
-    'DClaw3': 100,
+    'DClaw3': 200,
     'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
     'Pendulum': 200,
