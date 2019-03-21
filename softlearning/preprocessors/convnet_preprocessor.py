@@ -12,14 +12,16 @@ def convnet_preprocessor(
         image_shape,
         output_size,
         conv_filters=(32, 32),
-        conv_kernel_sizes=((5, 5), (5, 5)),
+        conv_kernel_sizes=(3, 3),
+        conv_strides=(2, 2),
         pool_type='MaxPool2D',
-        pool_sizes=((2, 2), (2, 2)),
-        pool_strides=(2, 2),
+        pool_sizes=(0, 0),
+        pool_strides=(1, 1),
         dense_hidden_layer_sizes=(64, 64),
         data_format='channels_last',
         name="convnet_preprocessor",
         use_batch_norm=False,
+        use_layer_norm=False,
         make_picklable=True,
         *args,
         **kwargs):
@@ -43,12 +45,17 @@ def convnet_preprocessor(
 
     images = tf.keras.layers.Reshape(image_shape)(images_flat)
 
+    assert not (use_batch_norm and use_layer_norm)
+
     out = images
-    for filters, kernel_size, pool_size, strides in zip(
-            conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
+    for (conv_filter, conv_kernel_size, conv_stride,
+         pool_size, pool_stride) in zip(
+             conv_filters, conv_kernel_sizes, conv_strides,
+             pool_sizes, pool_strides):
         out = tf.keras.layers.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
+            filters=conv_filter,
+            kernel_size=conv_kernel_size,
+            strides=conv_stride,
             padding="SAME",
             activation='linear',
             *args,
@@ -56,13 +63,15 @@ def convnet_preprocessor(
         )(out)
 
         if use_batch_norm:
-            out = tf.keras.layers.BatchNormalization()(out)
+            out = tf.keras.layers.BatchNormalization(axis=-1)(out)
+        elif use_layer_norm:
+            out = tf.keras.layers.BatchNormalization(axis=0)(out)
 
         out = tf.keras.layers.LeakyReLU()(out)
 
         if pool_size > 0:
             out = getattr(tf.keras.layers, pool_type)(
-                pool_size=pool_size, strides=strides
+                pool_size=pool_size, strides=pool_stride
             )(out)
 
     flattened = tf.keras.layers.Flatten()(out)
