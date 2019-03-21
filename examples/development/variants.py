@@ -376,6 +376,19 @@ def get_variant_spec_image(universe,
     if 'image' in task.lower() or 'image' in domain.lower():
         preprocessor_params = tune.grid_search([
             {
+                'type': 'Resnet6Preprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'output_size': M,
+                    'batch_norm_axis': None,
+                },
+            },
+            {
                 'type': 'ConvnetPreprocessor',
                 'kwargs': {
                     'image_shape': (

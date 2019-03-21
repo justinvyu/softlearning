@@ -24,6 +24,16 @@ def get_convnet_preprocessor(observation_space,
     return preprocessor
 
 
+def get_resnet6_preprocessor(observation_space,
+                             name='convnet_preprocessor',
+                             **kwargs):
+    from .resnet_preprocessor import Resnet6Preprocessor
+    preprocessor = Resnet6Preprocessor(
+        observation_space=observation_space, name=name, **kwargs)
+
+    return preprocessor
+
+
 def get_feedforward_preprocessor(observation_space,
                                  name='feedforward_preprocessor',
                                  **kwargs):
@@ -48,6 +58,7 @@ def get_vae_preprocessor(observation_space,
 
 PREPROCESSOR_FUNCTIONS = {
     'ConvnetPreprocessor': get_convnet_preprocessor,
+    'Resnet6Preprocessor': get_resnet6_preprocessor,
     'FeedforwardPreprocessor': get_feedforward_preprocessor,
     'VAEPreprocessor': get_vae_preprocessor,
     None: lambda *args, **kwargs: None
