@@ -374,21 +374,9 @@ def get_variant_spec_image(universe,
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
+
         preprocessor_params = tune.grid_search([
             {
-                'type': 'Resnet6Preprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'output_size': M,
-                    'batch_norm_axis': None,
-                },
-            },
-            {
                 'type': 'ConvnetPreprocessor',
                 'kwargs': {
                     'image_shape': (
@@ -397,77 +385,28 @@ def get_variant_spec_image(universe,
                         ['training']
                         ['kwargs']
                         ['image_shape']),
-                    'output_size': M,
-                    'conv_filters': (32, 32, 32, 64, 64, 64),
-                    'conv_kernel_sizes': (3, 3, 3, 3, 3, 3),
-                    'conv_strides': (2, 2, 2, 2, 2, 2),
-                    'batch_norm_axis': None,
-                },
-            },
-            {
-                'type': 'ConvnetPreprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'output_size': M,
-                    'conv_filters': (16, 8, 4),
-                    'conv_kernel_sizes': (3, 3, 3),
-                    'conv_strides': (1, 1, 1),
-                    'batch_norm_axis': None,
-                },
-            },
-            {
-                'type': 'ConvnetPreprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'output_size': M,
-                    'conv_filters': (8, 16, 32),
-                    'conv_kernel_sizes': (3, 3, 3),
-                    'conv_strides': (1, 1, 1),
-                    'batch_norm_axis': None,
-                },
-            },
-            {
-                'type': 'ConvnetPreprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'output_size': M,
-                    'conv_filters': (32, 16, 8),
-                    'conv_kernel_sizes': (3, 3, 3),
-                    'conv_strides': (1, 1, 1),
-                    'batch_norm_axis': None,
-                },
-            },
-            {
-                'type': 'ConvnetPreprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'output_size': M,
-                    'conv_filters': (8, 8, 16, 16, 32, 32),
-                    'conv_kernel_sizes': (3, 3, 3, 3, 3, 3),
-                    'conv_strides': (1, 1, 1, 1, 1, 1),
+                    'output_size': output_size,
+                    'conv_filters': tuple(
+                        np.repeat([int(base_size * 2 ** x) for x in range(3)],
+                                  repeat)),
+                    'conv_kernel_sizes': (3, 3, 3) * repeat,
+                    'conv_strides': (
+                        (2, 2, 2)
+                        if repeat == 1
+                        else (1, 2, 1, 2, 1, 2)
+                    ),
                     'batch_norm_axis': None,
                 },
             }
+            for base_size in (16, 32, 64)
+            for repeat in (1, 2)
+            for conv_strides in (
+                    (2, 2, 2),
+                    (1, 2, 1, 2, 1, 2),
+                    (1, 2, 2, 2, 2, 2),
+            )
+            for output_size in (32, 64, 128, 256)
+            if len(conv_strides) == (repeat * 3)
         ])
         variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
