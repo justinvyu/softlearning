@@ -58,6 +58,38 @@ def convnet(input_shape,
     return model
 
 
+def invert_convnet(convnet):
+    input_shape = convnet.output.shape.as_list()[-1] // 2
+    input_layer = tf.keras.layers.Input(shape=(input_shape, ))
+
+    x = input_layer
+
+    assert isinstance(convnet.layers[-1], tf.keras.layers.Dense)
+    assert isinstance(
+        convnet.layers[-2], tf.keras.layers.GlobalAveragePooling2D)
+
+    x = layers.Reshape((1, 1, x.shape.as_list()[-1]))(x)
+    x = layers.Conv2DTranspose(
+        filters=convnet.layers[-2].input.shape.as_list()[-1],
+        kernel_size=convnet.layers[-2].input.shape.as_list()[1:-1]
+    )(x)
+
+    for layer in convnet.layers[-3:0:-1]:
+        if isinstance(layer, layers.Conv2D):
+            assert x.shape.as_list() == layer.output.shape.as_list()
+            layer_config = layer.get_config()
+            layer_config['filters'] = layer.input.shape.as_list()[-1]
+            x = layers.Conv2DTranspose.from_config(layer_config)(x)
+            assert x.shape.as_list() == layer.input.shape.as_list()
+        elif isinstance(layer, layers.LeakyReLU):
+            x = type(layer).from_config(layer.get_config())(x)
+        else:
+            raise NotImplementedError(layer)
+
+    model = models.Model(input_layer, x, name='inverted_convnet')
+    return model
+
+
 def convnet_preprocessor(
         input_shapes,
         image_shape,

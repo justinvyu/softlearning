@@ -13,6 +13,7 @@ from gym import spaces
 
 from softlearning.utils.keras import PicklableKerasModel
 from .base_preprocessor import BasePreprocessor
+from .convnet_preprocessor import convnet as make_convnet, invert_convnet
 
 
 def _softplus_inverse(x):
@@ -29,43 +30,16 @@ def sampling(inputs):
     return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
-def make_encoder(input_shape, latent_size, base_depth, beta=1.0):
-    conv = functools.partial(
-        tf.keras.layers.Conv2D, padding="SAME", activation='relu')
-
-    input_layer = tf.keras.layers.Input(
-        shape=input_shape, name='encoder_input')
-    out = input_layer
-
-    # out = conv(filters=base_depth, kernel_size=5, strides=1)(out)
-    # out = conv(filters=base_depth, kernel_size=5, strides=2)(out)
-    # out = conv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
-    # out = conv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
-    # out = conv(filters=4 * latent_size, kernel_size=8, padding="VALID")(out)
-
-    conv_filters = (16, 16, 16)
-    conv_kernel_sizes = (3, 3, 3)
-    pool_sizes = (2, 2, 2)
-    pool_strides = (2, 2, 2)
-    pool_type = 'MaxPool2D'
-
-    for filters, kernel_size, pool_size, strides in zip(
-            conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
-        out = tf.keras.layers.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            padding="SAME",
-            activation=tf.nn.relu,
-        )(out)
-        out = getattr(tf.keras.layers, pool_type)(
-            pool_size=pool_size, strides=strides
-        )(out)
-
-    out = tf.keras.layers.Flatten()(out)  # 4x4x16 -> 256
-    shift_and_log_scale_diag = tf.keras.layers.Dense(
-        2 * latent_size, activation=None
-    )(out)
-
+def make_encoder(input_shape,
+                 latent_size,
+                 *args,
+                 beta=1.0,
+                 **kwargs):
+    convnet = make_convnet(input_shape,
+                           output_size=2*latent_size,
+                           *args,
+                           **kwargs)
+    shift_and_log_scale_diag = convnet(convnet.inputs)
     shift, log_scale_diag = tf.keras.layers.Lambda(
         lambda shift_and_log_scale_diag: tf.split(
             shift_and_log_scale_diag,
@@ -78,56 +52,20 @@ def make_encoder(input_shape, latent_size, base_depth, beta=1.0):
     )([shift, log_scale_diag])
 
     encoder = tf.keras.Model(
-        input_layer, [shift, log_scale_diag, latents], name='encoder')
+        convnet.inputs, [shift, log_scale_diag, latents], name='encoder')
 
     return encoder
 
 
-def make_decoder(latent_size, output_shape, base_depth):
-    deconv = functools.partial(
-        tf.keras.layers.Conv2DTranspose, padding="SAME", activation='relu')
-    conv = functools.partial(
-        tf.keras.layers.Conv2D, padding="SAME", activation='relu')
-
-    input_layer = tf.keras.layers.Input(
-        shape=(latent_size, ), name='decoder_input')
-
-    out = tf.keras.layers.Dense(
-        (output_shape[0] // (2 ** 3)) ** 2 * 16,
-        activation=None
-    )(input_layer)
-
-    # Collapse the sample and batch dimension and convert to rank-4 tensor for
-    # use with a convolutional decoder network.
-    codes = tf.keras.layers.Reshape((4, 4, latent_size))(out)
-    out = codes
-
-    conv_filters = (16, 16, 16)
-    conv_kernel_sizes = (3, 3, 3)
-    pool_sizes = (2, 2, 2)
-    pool_strides = (2, 2, 2)
-    pool_type = 'MaxPool2D'
-
-    for filters, kernel_size, pool_size, strides in zip(
-            conv_filters, conv_kernel_sizes, pool_sizes, pool_strides):
-        out = tf.keras.layers.Conv2DTranspose(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding="SAME",
-            activation=tf.nn.relu,
-        )(out)
-
-    # out = deconv(filters=2 * base_depth, kernel_size=8, padding="VALID")(out)
-    # out = deconv(filters=2 * base_depth, kernel_size=5, strides=1)(out)
-    # out = deconv(filters=2 * base_depth, kernel_size=5, strides=2)(out)
-    # out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
-    # out = deconv(filters=base_depth, kernel_size=5, strides=2)(out)
-    # out = deconv(filters=base_depth, kernel_size=5, strides=1)(out)
-
-    out = conv(filters=output_shape[-1], kernel_size=5, activation=None)(out)
-
-    decoder = tf.keras.Model(input_layer, out, name='decoder')
+def make_decoder(encoder):
+    convnet = invert_convnet(encoder.get_layer('convnet'))
+    assert (convnet.input.shape.as_list()[-1]
+            == encoder.get_layer('convnet').output.shape.as_list()[-1] // 2)
+    assert (convnet.output.shape.as_list()
+            == encoder.get_layer('convnet').input.shape.as_list())
+    decoded_images = convnet(convnet.inputs)
+    decoder = tf.keras.Model(
+        convnet.inputs, decoded_images, name='decoder')
 
     return decoder
 
@@ -139,9 +77,17 @@ def make_latent_prior(latent_size):
     return prior
 
 
-def create_beta_vae(image_shape, output_size, base_depth, beta=1.0):
-    encoder = make_encoder(image_shape, output_size, base_depth, beta=beta)
-    decoder = make_decoder(output_size, image_shape, base_depth)
+def create_beta_vae(image_shape,
+                    output_size,
+                    *args,
+                    beta=1.0,
+                    **kwargs):
+    encoder = make_encoder(
+        image_shape,
+        output_size,
+        *args,
+        **kwargs)
+    decoder = make_decoder(encoder)
 
     outputs = decoder(encoder(encoder.inputs)[2])
     vae = tf.keras.Model(encoder.inputs, outputs, name='vae')
@@ -199,7 +145,6 @@ class VAEPreprocessor(BasePreprocessor):
         self.vae = create_beta_vae(
             image_shape,
             output_size,
-            base_depth=32,
             beta=1.0)
         self.preprocessor = create_vae_preprocessor(
             input_shapes,
