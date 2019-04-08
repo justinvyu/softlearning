@@ -131,10 +131,12 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
             'kwargs': {
                 'n_epochs': NUM_EPOCHS_PER_DOMAIN.get(
                     domain, DEFAULT_NUM_EPOCHS),
-                'n_initial_exploration_steps': (
-                    MAX_PATH_LENGTH_PER_DOMAIN.get(
-                        domain, DEFAULT_MAX_PATH_LENGTH
-                    ) * 10),
+                'n_initial_exploration_steps': tune.sample_from(lambda spec: (
+                    10 * spec.get('config', spec)
+                    ['sampler_params']
+                    ['kwargs']
+                    ['max_path_length']
+                )),
             }
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
@@ -340,8 +342,6 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
                 'min_pool_size': 1000,
-                # MAX_PATH_LENGTH_PER_DOMAIN.get(
-                #     domain, DEFAULT_MAX_PATH_LENGTH),
                 'batch_size': 256,
             }
         },
@@ -374,7 +374,6 @@ def get_variant_spec_image(universe,
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
     if 'image' in task.lower() or 'image' in domain.lower():
-
         preprocessor_params = tune.grid_search([
             {
                 'type': 'ConvnetPreprocessor',
