@@ -385,7 +385,7 @@ def get_variant_spec_image(universe,
                         ['training']
                         ['kwargs']
                         ['image_shape']),
-                    'output_size': output_size,
+                    'output_size': None,
                     'conv_filters': tuple(
                         np.repeat([int(base_size * 2 ** x) for x in range(3)],
                                   repeat)),
@@ -406,7 +406,6 @@ def get_variant_spec_image(universe,
                     (1, 2, 1, 2, 1, 2),
                     (1, 2, 2, 2, 2, 2),
             )
-            for output_size in (32, 64, 128, 256)
             for downsampling_type in ('pool', 'conv')
             if len(conv_strides) == (repeat * 3)
         ])
