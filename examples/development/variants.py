@@ -37,7 +37,7 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
-    'DClaw3': 200,
+    'DClaw3': 250,
     'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
     'Pendulum': 200,
@@ -119,7 +119,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandReach': int(1e4),
     'Point2DEnv': int(200),
     'Reacher': int(200),
-    'DClaw3': int(100),
+    'DClaw3': int(200),
     'ImageDClaw3': int(300),
     'HardwareDClaw3': int(100),
     'Pendulum': 10,
