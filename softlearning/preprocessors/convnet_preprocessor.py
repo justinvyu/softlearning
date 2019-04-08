@@ -20,9 +20,13 @@ def convnet(input_shape,
             conv_filters=(32, 64, 128),
             conv_kernel_sizes=(3, 3, 3),
             conv_strides=(2, 2, 2),
-            batch_norm_axis=None,
+            use_global_average_pool=False,
+            normalization_type=None,
+            downsampling_type='pool',
             *args,
             **kwargs):
+    assert downsampling_type in ('pool', 'conv'), downsampling_type
+
     img_input = layers.Input(shape=input_shape, dtype=tf.float32)
     x = img_input
 
@@ -31,30 +35,44 @@ def convnet(input_shape,
         x = layers.Conv2D(
             filters=conv_filter,
             kernel_size=conv_kernel_size,
-            strides=conv_stride,
+            strides=(conv_stride if downsampling_type == 'conv' else 1),
             padding="SAME",
             activation='linear',
             *args,
             **kwargs
         )(x)
 
-        if batch_norm_axis is not None:
+        if normalization_type == 'batch':
             x = layers.BatchNormalization(
-                axis=batch_norm_axis,
                 momentum=BATCH_NORM_DECAY,
                 epsilon=BATCH_NORM_EPSILON
             )(x)
+        elif normalization_type == 'layer':
+            raise NotImplementedError(normalization_type)
+        elif normalization_type == 'weight':
+            raise NotImplementedError(normalization_type)
+        else:
+            assert normalization_type is None, normalization_type
 
         x = layers.LeakyReLU()(x)
 
-    x = layers.GlobalAveragePooling2D(name='average_pool')(x)
-    x = layers.Dense(
-         output_size,
-         kernel_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
-         bias_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
-         name='fully_connected')(x)
+        if downsampling_type == 'pool' and conv_stride > 1:
+            x = getattr(tf.keras.layers, 'AvgPool2D')(
+                pool_size=conv_stride, strides=conv_stride
+            )(x)
+
+    if use_global_average_pool:
+        x = layers.GlobalAveragePooling2D(name='average_pool')(x)
+        # x = layers.Dense(
+        #      output_size,
+        #      kernel_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
+        #      bias_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
+        #      name='fully_connected')(x)
+    else:
+        x = tf.keras.layers.Flatten()(x)
 
     model = models.Model(img_input, x, name='convnet')
+    model.summary()
     return model
 
 
@@ -124,8 +142,6 @@ def convnet_preprocessor(
     )([preprocessed_images, input_raw])
 
     preprocessor = PicklableKerasModel(inputs, output, name=name)
-
-    assert preprocessor.output.shape.as_list()[-1] == output_size
 
     return preprocessor
 

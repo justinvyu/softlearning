@@ -395,7 +395,8 @@ def get_variant_spec_image(universe,
                         if repeat == 1
                         else (1, 2, 1, 2, 1, 2)
                     ),
-                    'batch_norm_axis': None,
+                    'normalization_type': None,
+                    'downsampling_type': downsampling_type,
                 },
             }
             for base_size in (16, 32, 64)
@@ -406,6 +407,7 @@ def get_variant_spec_image(universe,
                     (1, 2, 2, 2, 2, 2),
             )
             for output_size in (32, 64, 128, 256)
+            for downsampling_type in ('pool', 'conv')
             if len(conv_strides) == (repeat * 3)
         ])
         variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
