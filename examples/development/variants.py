@@ -225,7 +225,7 @@ ENVIRONMENT_PARAMS = {
     },
     'DClaw3': {
         'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -236,7 +236,7 @@ ENVIRONMENT_PARAMS = {
         },
         'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -248,7 +248,7 @@ ENVIRONMENT_PARAMS = {
     },
     'HardwareDClaw3': {
         'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -259,7 +259,7 @@ ENVIRONMENT_PARAMS = {
         },
         'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
