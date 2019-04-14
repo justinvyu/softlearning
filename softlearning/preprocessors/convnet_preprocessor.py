@@ -10,11 +10,6 @@ from softlearning.utils.keras import PicklableKerasModel
 from .base_preprocessor import BasePreprocessor
 
 
-L2_WEIGHT_DECAY = 0
-BATCH_NORM_DECAY = 0.9
-BATCH_NORM_EPSILON = 1e-5
-
-
 def convnet(input_shape,
             output_size,
             conv_filters=(32, 64, 128),
@@ -43,10 +38,7 @@ def convnet(input_shape,
         )(x)
 
         if normalization_type == 'batch':
-            x = layers.BatchNormalization(
-                momentum=BATCH_NORM_DECAY,
-                epsilon=BATCH_NORM_EPSILON
-            )(x)
+            x = layers.BatchNormalization()(x)
         elif normalization_type == 'layer':
             raise NotImplementedError(normalization_type)
         elif normalization_type == 'weight':
@@ -63,11 +55,6 @@ def convnet(input_shape,
 
     if use_global_average_pool:
         x = layers.GlobalAveragePooling2D(name='average_pool')(x)
-        # x = layers.Dense(
-        #      output_size,
-        #      kernel_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
-        #      bias_regularizer=regularizers.l2(L2_WEIGHT_DECAY),
-        #      name='fully_connected')(x)
     else:
         x = tf.keras.layers.Flatten()(x)
 
