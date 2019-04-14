@@ -325,7 +325,10 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
         ALGORITHM_PARAMS_PER_DOMAIN.get(domain, {})
     )
     if task == 'InfoScrewV2-v0':
-        algorithm_params['kwargs']['goal_classifier_params_direc'] = '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train_scope/params.ckpt'
+        from softlearning.misc.utils import PROJECT_PATH
+        algorithm_params['kwargs']['goal_classifier_params_direc'] = os.path.join(
+            PROJECT_PATH,
+            'goal_classifier/screw_imgs/train_scope/params.ckpt')
     variant_spec = {
         'git_sha': get_git_rev(__file__),
 
