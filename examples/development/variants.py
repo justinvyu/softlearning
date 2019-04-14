@@ -53,7 +53,6 @@ ALGORITHM_PARAMS_BASE = {
         'eval_render_mode': None,
         'eval_n_episodes': 3, # num of eval rollouts
         'eval_deterministic': True,
-
         'discount': 0.99,
         'tau': 5e-3,
         'reward_scale': 1.0,
@@ -73,7 +72,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(1e3),
-            'her_iters': tune.grid_search([0]),
+            'her_iters': tune.grid_search([1]),
         }
     },
     'SQL': {
@@ -242,8 +241,8 @@ ENVIRONMENT_PARAMS = {
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (-np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (0, 0),
-            'reset_free': False,
+            'object_initial_position_range': (-np.pi, np.pi),
+            'reset_free': True,
         },
         'ImageScrewV2-v0': {
             'is_hardware': False,
@@ -254,9 +253,10 @@ ENVIRONMENT_PARAMS = {
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
+            'target_initial_position_range': (-np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
             'object_initial_position_range': (0, 0),
+            'state_reward': True,
         },
         'InfoScrewV2-v0': {
             # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
@@ -281,9 +281,10 @@ ENVIRONMENT_PARAMS = {
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
-            'target_initial_position_range': (np.pi, np.pi),
+            'target_initial_position_range': (-np.pi, np.pi),
             'object_initial_velocity_range': (0, 0),
-            'object_initial_position_range': (0, 0),
+            'object_initial_position_range': (-np.pi, np.pi),
+            'frame_skip': 30,
         },
         'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
@@ -364,7 +365,7 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
             }
         },
         'sampler_params': deep_update({
-            'type': 'RemoteSampler', #'SimpleSampler',
+            'type': 'SimpleSampler',
             'kwargs': {
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
@@ -378,12 +379,12 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
             'seed': tune.sample_from(
                 lambda spec: np.random.randint(0, 10000)),
             'checkpoint_at_end': True,
-            'checkpoint_frequency': tune.sample_from(lambda spec: (
-                25000 // (spec.get('config', spec)
-                          ['algorithm_params']
-                          ['kwargs']
-                          ['epoch_length']))
-            ),
+            'checkpoint_frequency': 0, #tune.sample_from(lambda spec: (
+                # 25000 // (spec.get('config', spec)
+                #           ['algorithm_params']
+                #           ['kwargs']
+                #           ['epoch_length']))
+            # ),
             # NUM_EPOCHS_PER_DOMAIN.get(
             #     domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
         },
@@ -391,6 +392,11 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
 
     if task == 'InfoScrewV2-v0':
         variant_spec['replay_pool_params']['kwargs']['include_images'] = True
+    if task == 'ImageScrewV2-v0' and ENVIRONMENT_PARAMS['DClaw3']['ImageScrewV2-v0']['state_reward']:
+        variant_spec['replay_pool_params']['kwargs']['super_observation_space_shape'] = (9+9+2+1+2,)
+    if domain == 'HardwareDClaw3':
+        variant_spec['sampler_params']['type'] == 'RemoteSampler'
+        variant_spec['algorithm_params']['kwargs']['max_train_repeat_per_timestep'] = 1
     return variant_spec
 
 
@@ -416,8 +422,8 @@ def get_variant_spec_image(universe,
                     ['image_shape']),
                 'output_size': M,
                 'num_conv_layers': tune.grid_search([3]),
-                'num_filters_per_layer': tune.grid_search([8]),
-                'pool_type': 'AvgPool2D',
+                'num_filters_per_layer': tune.grid_search([32]),
+                'pool_type': 'MaxPool2D',
                 'pool_size': tune.grid_search([2]),
                 'dense_hidden_layer_sizes': (),
             },
@@ -434,6 +440,29 @@ def get_variant_spec_image(universe,
                 ['preprocessor_params']
             )))
         variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
+    # if 'image' in task.lower() or 'image' in domain.lower():
+    #     preprocessor_params = {
+    #         'type': 'convnet_preprocessor',
+    #         'kwargs': {
+    #             'image_shape': (
+    #                 variant_spec
+    #                 ['environment_params']
+    #                 ['training']
+    #                 ['kwargs']
+    #                 ['image_shape']),
+    #             'output_size': M,
+    #             'conv_filters': (32, 64, 128),
+    #             'conv_kernel_sizes': (3, 3, 3),
+    #             'pool_type': 'MaxPool2D',
+    #             'pool_sizes': (2, 2, 2),
+    #             'pool_strides': (2, 2, 2),
+    #             'dense_hidden_layer_sizes': (),
+    #         },
+    #     }
+    #     variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
+    #         preprocessor_params.copy())
+    #     variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
+    #         preprocessor_params.copy())
 
     return variant_spec
 

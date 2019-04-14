@@ -34,9 +34,12 @@ def normalize_observation_fields(observation_space, name='observations'):
 
 
 class SimpleReplayPool(FlexibleReplayPool):
-    def __init__(self, observation_space, action_space, include_images=False, *args, **kwargs):
+    def __init__(self, observation_space, action_space, include_images=False,
+        super_observation_space_shape=None, *args, **kwargs):
         self._observation_space = observation_space
         self._action_space = action_space
+        self._include_images = include_images
+        self._super_observation_space_shape = super_observation_space_shape
 
         observation_fields = normalize_observation_fields(observation_space)
         # It's a bit memory inefficient to save the observations twice,
@@ -65,11 +68,21 @@ class SimpleReplayPool(FlexibleReplayPool):
                 },
             }
         }
-        if include_images:
+
+        if self._include_images:
             fields = {
                 **fields,
                 'images': {
                     'shape':(32,32,3),
+                    'dtype': 'float32'
+                },
+            }
+
+        if self._super_observation_space_shape is not None:
+            fields = {
+                **fields,
+                'super_observations': {
+                    'shape': super_observation_space_shape,
                     'dtype': 'float32'
                 },
             }
@@ -79,13 +92,6 @@ class SimpleReplayPool(FlexibleReplayPool):
             *args, fields_attrs=fields, **kwargs)
 
     def add_samples(self, samples):
-        try:
-            samples['images'] = np.array([
-                info['image']
-                for info in samples['infos']
-                ])
-        except:
-            pass
         if not isinstance(self._observation_space, Dict):
             return super(SimpleReplayPool, self).add_samples(samples)
 
@@ -112,6 +118,18 @@ class SimpleReplayPool(FlexibleReplayPool):
 
         del samples['observations']
         del samples['next_observations']
+
+        if self._include_images:
+            samples['images'] = np.array([
+                info['image']
+                for info in samples['infos']
+                ])
+
+        if self._super_observation_space_shape is not None:
+            samples['super_observations'] = np.array([
+                info['super_observation']
+                for info in samples['infos']
+                ])
 
         return super(SimpleReplayPool, self).add_samples(samples)
 

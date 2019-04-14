@@ -27,7 +27,6 @@ for goal in [0, 0.5, 1, 1.5, 2]:
     test_goals = np.full((num_test, 1), fill_value=goal*np.pi)
     test_labels = (wrap_dist(test_goals, np.expand_dims(test_pos, 1)) < 0.15) * 1
     test_feed_dict = {cnn.images: test_images, cnn.labels: test_labels, cnn.goals:test_goals}
-    # import ipdb; ipdb.set_trace()
     test_pred_probs, test_avg_pred_prob, test_acc, test_summary = sess.run([cnn.pred_probs, cnn.avg_pred_prob, cnn.accuracy, cnn.summary], feed_dict=test_feed_dict)
     # print("Iter: %i, Train Loss: %f, Avg Pred Prob (Train): %f, Train Acc: %f, Test Acc: %f, Avg Pred Prob (Test): %f" %(i, loss, avg_pred_prob, train_acc, test_acc, test_avg_pred_prob))
     # test_writer.add_summary(test_summary, i)

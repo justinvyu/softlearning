@@ -28,7 +28,6 @@ def convnet_preprocessor(
         tf.keras.layers.Input(shape=input_shape)
         for input_shape in input_shapes
     ]
-
     concatenated_input = tf.keras.layers.Lambda(
         lambda x: tf.concat(x, axis=-1)
     )(inputs)

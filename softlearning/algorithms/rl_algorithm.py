@@ -49,8 +49,6 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
             eval_render_mode (`str`): Mode to render evaluation rollouts in.
                 None to disable rendering.
         """
-        # import ipdb; ipdb.set_trace()
-        # print(tf.trainable_variables())
         self.sampler = sampler
 
         self._n_epochs = n_epochs
@@ -328,13 +326,11 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
         import time
         t0 = time.time()
         self._training_batch()
-        # print('get training batch: ', time.time() - t0)
         t0 = time.time()
         for i in range(self._n_train_repeat):
             self._do_training(
                 iteration=timestep,
                 batch=self._training_batch())
-        # print('n train repeat: ', time.time() - t0)
 
         self._num_train_steps += self._n_train_repeat
         self._train_steps_this_epoch += self._n_train_repeat

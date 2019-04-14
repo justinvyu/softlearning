@@ -425,11 +425,14 @@ class SAC(RLAlgorithm):
         batch_next_obs = batch['next_observations']
 
         new_batch_obs = self._base_env.relabel_obs_w_goal(batch_obs, new_goal)
-        # Q: this is probably bad if I am referring to an env that is sampling?
-        self._base_env.set_goal(new_goal)
-        new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
-        self._base_env.set_goal(old_goal)
         new_batch_next_obs = self._base_env.relabel_obs_w_goal(batch_next_obs, new_goal)
+
+        if self._base_env._state_reward:
+            batch_super_obs = batch['super_observations']
+            new_batch_super_obs = self._base_env.relabel_obs_w_goal(batch_super_obs, new_goal)
+            new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_super_obs, batch_act)[0], 1)
+        else:
+            new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
 
         new_batch = {
             'rewards': new_batch_rew,
