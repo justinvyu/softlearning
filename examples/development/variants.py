@@ -381,77 +381,71 @@ def get_variant_spec_image(universe,
         ['image_shape'])
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_params = tune.grid_search([
-            {
-                'type': 'ConvnetPreprocessor',
+        preprocessor_type = "conv"
+        if preprocessor_type == "conv":
+            preprocessor_params = tune.grid_search([
+                {
+                    'type': 'ConvnetPreprocessor',
+                    'kwargs': {
+                        'image_shape': image_shape,
+                        'output_size': None,
+                        'conv_filters': (base_size, ) * num_layers,
+                        'conv_kernel_sizes': (conv_kernel_size, ) * num_layers,
+                        'conv_strides': (conv_strides, ) * num_layers,
+                        'normalization_type': normalization_type,
+                        'downsampling_type': downsampling_type,
+                        'use_global_average_pool': use_global_average_pool,
+                    },
+                }
+                for base_size in (64, )
+                for conv_kernel_size in (3, )
+                for conv_strides in (2, )
+                for normalization_type in (None, )
+                for num_layers in (4, )
+                for use_global_average_pool in (False, )
+                for downsampling_type in ('conv', )
+                if (image_shape[0] / (conv_strides ** num_layers)) >= 1
+            ])
+        elif preprocessor_type == "vae":
+            num_layers = 4
+            preprocessor_params = {
+                'type': 'VAEPreprocessor',
                 'kwargs': {
-                    'image_shape': image_shape,
-                    'output_size': None,
-                    'conv_filters': tuple([
-                        int(base_size * 2 ** x)
-                        for x in range(num_layers)
-                    ]),
-                    'conv_kernel_sizes': (conv_kernel_size, ) * num_layers,
-                    'conv_strides': (conv_strides, ) * num_layers,
-                    'normalization_type': normalization_type,
-                    'downsampling_type': downsampling_type,
-                    'use_global_average_pool': use_global_average_pool,
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'conv_filters': (64, ) * num_layers,
+                    'conv_kernel_sizes': (3, ) * num_layers,
+                    'conv_strides': (2, ) * num_layers,
+                    'normalization_type': None,
+                    'downsampling_type': 'conv',
+                    'output_size': 16,
+                    'beta': 1.0,
                 },
             }
-            for base_size in (16, 32)
-            for conv_kernel_size in (3, 5)
-            for conv_strides in (2, )
-            for normalization_type in (None, )
-            for num_layers in (3, 4, 5)
-            for use_global_average_pool in (False, )
-            for downsampling_type in ('pool', )
-            if (image_shape[0] / (conv_strides ** num_layers)) > 1
-        ])
+        else:
+            raise NotImplementedError(preprocessor_type)
 
+        variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
-        variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (
-            tune.grid_search([(M, M)]))
 
-        variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
-            tune.sample_from(lambda spec: (
-                spec.get('config', spec)
-                ['policy_params']
-                ['kwargs']
-                ['preprocessor_params']
-            )))
-    # if 'image' in task.lower() or 'image' in domain.lower():
-    #     preprocessor_params = {
-    #         'type': 'VAEPreprocessor',
-    #         'kwargs': {
-    #             'image_shape': (
-    #                 variant_spec
-    #                 ['environment_params']
-    #                 ['training']
-    #                 ['kwargs']
-    #                 ['image_shape']),
-    #             'output_size': 16,
-    #             'beta': 1.0,
-    #         },
-    #     }
-    #     variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
-    #     variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
-    #         preprocessor_params.copy())
-
-    #     variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
-    #         tune.sample_from(lambda spec: (
-    #             spec.get('config', spec)
-    #             ['policy_params']
-    #             ['kwargs']
-    #             ['preprocessor_params']
-    #         )))
-    #     variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (
             tune.sample_from(lambda spec: (
                 spec.get('config', spec)
                 ['policy_params']
                 ['kwargs']
                 ['hidden_layer_sizes']
+            )))
+        variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
+            tune.sample_from(lambda spec: (
+                spec.get('config', spec)
+                ['policy_params']
+                ['kwargs']
+                ['preprocessor_params']
             )))
 
     return variant_spec
