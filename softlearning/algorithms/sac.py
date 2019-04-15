@@ -117,6 +117,7 @@ class SAC(RLAlgorithm):
         self._init_actor_update()
         self._init_critic_update()
         self._init_preprocessor_update()
+        self._init_diagnostics_ops()
 
     def train(self, *args, **kwargs):
         """Initiate training of the SAC instance."""
@@ -369,7 +370,6 @@ class SAC(RLAlgorithm):
         """Runs the operations for updating training and target ops."""
 
         feed_dict = self._get_feed_dict(iteration, batch)
-
         self._session.run(self._training_ops, feed_dict)
 
         if iteration % self._target_update_interval == 0:
@@ -396,6 +396,24 @@ class SAC(RLAlgorithm):
 
         return feed_dict
 
+    def _init_diagnostics_ops(self):
+        self._diagnostics_ops = {
+            **{
+                f'{key}-{metric_name}': metric_fn(values)
+                for key, values in (
+                        ('Q_values', self._Q_values),
+                        ('Q_losses', self._Q_losses),
+                        ('policy_losses', self._policy_losses))
+                for metric_name, metric_fn in (
+                        ('mean', tf.reduce_mean),
+                        ('std', tfp.stats.stddev))
+            },
+            'alpha': self._alpha,
+            'global_step': self.global_step,
+        }
+
+        return self._diagnostics_ops
+
     def get_diagnostics(self,
                         iteration,
                         batch,
@@ -411,23 +429,7 @@ class SAC(RLAlgorithm):
         """
 
         feed_dict = self._get_feed_dict(iteration, batch)
-
-        (Q_values, Q_losses, policy_losses, alpha, global_step) = (
-            self._session.run(
-                (self._Q_values,
-                 self._Q_losses,
-                 self._policy_losses,
-                 self._alpha,
-                 self.global_step),
-                feed_dict))
-
-        diagnostics = OrderedDict({
-            'Q-avg': np.mean(Q_values),
-            'Q-std': np.std(Q_values),
-            'Q_loss': np.mean(Q_losses),
-            'policy_loss': np.mean(policy_losses),
-            'alpha': alpha,
-        })
+        diagnostics = self._session.run(self._diagnostics_ops, feed_dict)
 
         policy_diagnostics = self._policy.get_diagnostics(
             batch['observations'])
