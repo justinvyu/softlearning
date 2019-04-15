@@ -381,7 +381,7 @@ def get_variant_spec_image(universe,
         ['image_shape'])
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_type = "conv"
+        preprocessor_type = "vae"
         if preprocessor_type == "conv":
             preprocessor_params = tune.grid_search([
                 {
@@ -423,8 +423,8 @@ def get_variant_spec_image(universe,
                     'normalization_type': None,
                     'downsampling_type': 'conv',
                     'output_size': 16,
-                    'beta': 1.0,
-                    'loss_weight': 1.0,
+                    'beta': tune.grid_search([1.0, 3.0, 10.0, 30.0, 100.0]),
+                    'loss_weight': tune.grid_search([1e-3, 1e-2, 1e-1, 0.0]),
                 },
             }
         else:
