@@ -424,6 +424,7 @@ def get_variant_spec_image(universe,
                     'downsampling_type': 'conv',
                     'output_size': 16,
                     'beta': 1.0,
+                    'loss_weight': 1.0,
                 },
             }
         else:

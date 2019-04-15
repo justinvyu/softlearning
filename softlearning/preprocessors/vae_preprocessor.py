@@ -13,7 +13,8 @@ from gym import spaces
 
 from softlearning.utils.keras import PicklableKerasModel
 from .base_preprocessor import BasePreprocessor
-from .convnet_preprocessor import convnet as make_convnet, invert_convnet
+from .convnet_preprocessor import (
+    convnet as make_convnet, invert_convnet, invert_convnet_v2)
 
 
 def _softplus_inverse(x):
@@ -33,7 +34,6 @@ def sampling(inputs):
 def make_encoder(input_shape,
                  latent_size,
                  *args,
-                 beta=1.0,
                  **kwargs):
     convnet = make_convnet(input_shape,
                            output_size=2*latent_size,
@@ -58,7 +58,7 @@ def make_encoder(input_shape,
 
 
 def make_decoder(encoder):
-    convnet = invert_convnet(encoder.get_layer('convnet'))
+    convnet = invert_convnet_v2(encoder.get_layer('convnet'))
     assert (convnet.input.shape.as_list()[-1]
             == encoder.get_layer('convnet').output.shape.as_list()[-1] // 2)
     assert (convnet.output.shape.as_list()
@@ -81,6 +81,8 @@ def create_beta_vae(image_shape,
                     output_size,
                     *args,
                     beta=1.0,
+                    loss_weight=1.0,
+                    name='beta_vae',
                     **kwargs):
     encoder = make_encoder(
         image_shape,
@@ -90,7 +92,9 @@ def create_beta_vae(image_shape,
     decoder = make_decoder(encoder)
 
     outputs = decoder(encoder(encoder.inputs)[2])
-    vae = tf.keras.Model(encoder.inputs, outputs, name='vae')
+    vae = tf.keras.Model(encoder.inputs, outputs, name=name)
+    vae.beta = beta
+    vae.loss_weight = loss_weight
 
     return vae
 
@@ -134,6 +138,7 @@ class VAEPreprocessor(BasePreprocessor):
                  observation_space,
                  output_size,
                  image_shape,
+                 name='vae_preprocessor',
                  *args,
                  **kwargs):
         super(VAEPreprocessor, self).__init__(observation_space, output_size)
@@ -145,12 +150,13 @@ class VAEPreprocessor(BasePreprocessor):
         self.vae = create_beta_vae(
             image_shape,
             output_size,
-            beta=1.0)
+            **kwargs)
         self.preprocessor = create_vae_preprocessor(
             input_shapes,
             image_shape,
             output_size,
             self.vae,
+            name=name,
         )
 
     def transform(self, observation):

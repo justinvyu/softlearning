@@ -18,6 +18,7 @@ def convnet(input_shape,
             use_global_average_pool=False,
             normalization_type=None,
             downsampling_type='pool',
+            name='convnet',
             *args,
             **kwargs):
     assert downsampling_type in ('pool', 'conv'), downsampling_type
@@ -58,9 +59,62 @@ def convnet(input_shape,
     else:
         x = tf.keras.layers.Flatten()(x)
 
-    model = models.Model(img_input, x, name='convnet')
+    model = models.Model(img_input, x, name=name)
     model.summary()
     return model
+
+
+class ReflectionPadding2D(tf.keras.layers.Layer):
+    def __init__(self, padding=(1, 1), **kwargs):
+        self.padding = tuple(padding)
+        super(ReflectionPadding2D, self).__init__(**kwargs)
+
+    # def get_output_shape_for(self, s):
+    #     from pprint import pprint; import ipdb; ipdb.set_trace(context=30)
+    #     return (s[0], s[1] + 2 * self.padding[0], s[2] + 2 * self.padding[1], s[3])
+
+    def call(self, x, mask=None):
+        return tf.pad(x, [[0, 0], *self.padding, [0, 0] ], 'reflect')
+
+
+def upsampling_block(x,
+                     filters,
+                     *args,
+                     kernel_size=3,
+                     strides=1,
+                     use_global_average_pool=False,
+                     normalization_type=None,
+                     downsampling_type='pool',
+                     interpolation='nearest',
+                     **kwargs):
+    x = layers.UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
+    kernel_size = np.array(kernel_size)
+    padding_size = np.ones((2, 2), dtype=int) * ((kernel_size - 1) // 2)
+    # x = layers.Lambda(lambda x: tf.pad(x, padding_size, mode='reflect'))(x)
+
+    x = ReflectionPadding2D(padding_size)(x)
+
+    x = layers.Conv2D(
+        filters=filters,
+        kernel_size=kernel_size,
+        strides=1,
+        # padding="SAME",
+        activation="linear",
+        *args,
+        **kwargs,
+    )(x)
+
+    if normalization_type == 'batch':
+        x = layers.BatchNormalization()(x)
+    elif normalization_type == 'layer':
+        raise NotImplementedError(normalization_type)
+    elif normalization_type == 'weight':
+        raise NotImplementedError(normalization_type)
+    else:
+        assert normalization_type is None, normalization_type
+
+    x = layers.LeakyReLU()(x)
+    return x
 
 
 def invert_convnet(convnet):
@@ -90,6 +144,44 @@ def invert_convnet(convnet):
             x = type(layer).from_config(layer.get_config())(x)
         else:
             raise NotImplementedError(layer)
+
+    model = models.Model(input_layer, x, name='inverted_convnet')
+    return model
+
+
+def invert_convnet_v2(convnet):
+    input_shape = convnet.output.shape.as_list()[-1] // 2
+    input_layer = tf.keras.layers.Input(shape=(input_shape, ))
+
+    x = input_layer
+
+    assert isinstance(convnet.layers[-1], tf.keras.layers.Flatten)
+    convnet_output_shape = convnet.layers[-2].output.shape[1:].as_list()
+    assert len(convnet_output_shape) == 3, convnet_output_shape
+    unflattened_shape = (
+        *convnet_output_shape[:-1], convnet_output_shape[-1] // 2)
+    x = layers.Reshape(unflattened_shape)(x)
+
+    for conv_block in zip(convnet.layers[-2:0:-2], convnet.layers[-3:0:-2]):
+        assert isinstance(conv_block[0], tf.keras.layers.LeakyReLU)
+        assert isinstance(conv_block[1], tf.keras.layers.Conv2D)
+
+        num_filters = (
+            conv_block[1].filters
+            if conv_block[1] is not next(
+                layer for layer in convnet.layers
+                if isinstance(layer, tf.keras.layers.Conv2D))
+            else 3)
+
+        x = upsampling_block(
+            x,
+            num_filters,
+            kernel_size=conv_block[1].kernel_size,
+            strides=conv_block[1].strides,
+            use_global_average_pool=False,
+            normalization_type=None,
+            downsampling_type='conv',
+            interpolation='nearest')
 
     model = models.Model(input_layer, x, name='inverted_convnet')
     return model

@@ -333,14 +333,15 @@ class SAC(RLAlgorithm):
 
             reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
             reconstruction_loss *= np.prod(image_shape)
-            reconstruction_loss = self.reconstruction_loss = (
+            reconstruction_loss = self.vae_reconstruction_loss = (
                 tf.reduce_mean(reconstruction_loss))
             kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
             kl_loss = tf.reduce_sum(kl_loss, axis=-1)
             kl_loss *= -0.5
-            kl_loss = self.kl_loss = tf.reduce_mean(kl_loss)
+            kl_loss = self.vae_kl_loss = tf.reduce_mean(kl_loss)
 
-            vae_loss = reconstruction_loss + kl_loss
+            vae_loss = self.vae_loss = vae.loss_weight * (
+                reconstruction_loss + vae.beta * kl_loss)
 
             vae_optimizer = tf.train.AdamOptimizer(
                 learning_rate=self._policy_lr,
@@ -411,6 +412,13 @@ class SAC(RLAlgorithm):
             'alpha': self._alpha,
             'global_step': self.global_step,
         }
+
+        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
+            self._diagnostics_ops.update({
+                'vae_loss': self.vae_loss,
+                'vae_kl_loss': self.vae_kl_loss,
+                'vae_reconstruction_loss': self.vae_reconstruction_loss,
+            })
 
         return self._diagnostics_ops
 
