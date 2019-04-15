@@ -318,8 +318,11 @@ class SAC(RLAlgorithm):
             encoder = vae.get_layer('encoder')
             image_shape = self._policy._preprocessor.image_shape
 
+            normalized_images = (
+                (self._observations_ph[:, :np.prod(image_shape)] + 1.0) / 2.0)
+
             loss_inputs = tf.reshape(
-                self._observations_ph[:, :np.prod(image_shape)],
+                normalized_images,
                 (-1, *image_shape))
             loss_outputs = vae(loss_inputs)
 
