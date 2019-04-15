@@ -12,12 +12,12 @@ from .base_preprocessor import BasePreprocessor
 
 def convnet(input_shape,
             output_size,
-            conv_filters=(32, 64, 128),
+            conv_filters=(64, 64, 64),
             conv_kernel_sizes=(3, 3, 3),
             conv_strides=(2, 2, 2),
             use_global_average_pool=False,
             normalization_type=None,
-            downsampling_type='pool',
+            downsampling_type='conv',
             name='convnet',
             *args,
             **kwargs):
