@@ -410,7 +410,8 @@ class SAC(RLAlgorithm):
                         ('policy_losses', self._policy_losses))
                 for metric_name, metric_fn in (
                         ('mean', tf.reduce_mean),
-                        ('std', tfp.stats.stddev))
+                        ('std', lambda x: tfp.stats.stddev(
+                            x, sample_axis=None)))
             },
             'alpha': self._alpha,
             'global_step': self.global_step,
