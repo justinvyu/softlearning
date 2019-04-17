@@ -43,7 +43,7 @@ class GaussianPolicy(LatentSpacePolicy):
         )(self.condition_inputs)
 
         if preprocessor is not None:
-            conditions = preprocessor(conditions)
+            conditions = preprocessor.transform(conditions)
 
         shift_and_log_scale_diag = self._shift_and_log_scale_diag_net(
             input_shapes=(conditions.shape[1:], ),
@@ -213,6 +213,8 @@ class GaussianPolicy(LatentSpacePolicy):
 
             'actions-mean': np.mean(actions_np),
             'actions-std': np.std(actions_np),
+            'actions-min': np.min(actions_np),
+            'actions-max': np.max(actions_np),
         })
 
 

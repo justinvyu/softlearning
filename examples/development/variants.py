@@ -37,8 +37,9 @@ POLICY_PARAMS_FOR_DOMAIN.update({
 DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
-    'DClaw3': tune.grid_search([200]),
-    'HardwareDClaw3': 200,
+    'DClaw3': 250,
+    'ImageDClaw3': 100,
+    'HardwareDClaw3': 100,
     'Pendulum': 200,
     'Pusher2d': 100,
 }
@@ -130,9 +131,12 @@ ALGORITHM_PARAMS_PER_DOMAIN = {
             'kwargs': {
                 'n_epochs': NUM_EPOCHS_PER_DOMAIN.get(
                     domain, DEFAULT_NUM_EPOCHS),
-                'n_initial_exploration_steps': tune.sample_from(lambda spec:(
-                    10*spec.get('config', spec)['sampler_params']['kwargs']['max_path_length']
-                ))
+                'n_initial_exploration_steps': tune.sample_from(lambda spec: (
+                    10 * spec.get('config', spec)
+                    ['sampler_params']
+                    ['kwargs']
+                    ['max_path_length']
+                )),
             }
         } for domain in NUM_EPOCHS_PER_DOMAIN
     }
@@ -234,7 +238,7 @@ ENVIRONMENT_PARAMS = {
             'isHARDARE': False,
         },
         'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -276,7 +280,7 @@ ENVIRONMENT_PARAMS = {
     },
     'HardwareDClaw3': {
         'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -288,9 +292,9 @@ ENVIRONMENT_PARAMS = {
         },
         'ImageScrewV2-v0': {
             'image_shape': (32, 32, 3),
-            # 'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
-            'pose_difference_cost_coeff': 1e-1,
-            'joint_velocity_cost_coeff': 1e-1,
+            'object_target_distance_reward_fn': NegativeLogLossFn(0),
+            'pose_difference_cost_coeff': 0,
+            'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
             'target_initial_velocity_range': (0, 0),
             'target_initial_position_range': (np.pi, np.pi),
@@ -322,7 +326,7 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
     if task == 'InfoScrewV2-v0':
         algorithm_params['kwargs']['goal_classifier_params_direc'] = '/home/abhigupta/Libraries/softlearning/goal_classifier/screw_imgs/train_scope/params.ckpt'
     variant_spec = {
-        'git_sha': get_git_rev(),
+        'git_sha': get_git_rev(__file__),
 
         'environment_params': {
             'training': {
@@ -370,8 +374,6 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
                 'max_path_length': MAX_PATH_LENGTH_PER_DOMAIN.get(
                     domain, DEFAULT_MAX_PATH_LENGTH),
                 'min_pool_size': 1000,
-                # MAX_PATH_LENGTH_PER_DOMAIN.get(
-                #     domain, DEFAULT_MAX_PATH_LENGTH),
                 'batch_size': 256,
             }
         }, SAMPLER_PARAMS_PER_DOMAIN.get(domain, {})),
@@ -379,12 +381,12 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
             'seed': tune.sample_from(
                 lambda spec: np.random.randint(0, 10000)),
             'checkpoint_at_end': True,
-            'checkpoint_frequency': 0, #tune.sample_from(lambda spec: (
-                # 25000 // (spec.get('config', spec)
-                #           ['algorithm_params']
-                #           ['kwargs']
-                #           ['epoch_length']))
-            # ),
+            'checkpoint_frequency': tune.sample_from(lambda spec: (
+                25000 // (spec.get('config', spec)
+                          ['algorithm_params']
+                          ['kwargs']
+                          ['epoch_length'])
+            )),
             # NUM_EPOCHS_PER_DOMAIN.get(
             #     domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
         },
@@ -410,28 +412,74 @@ def get_variant_spec_image(universe,
     variant_spec = get_variant_spec_base(
         universe, domain, task, policy, algorithm, *args, **kwargs)
 
+    image_shape = (
+        variant_spec
+        ['environment_params']
+        ['training']
+        ['kwargs']
+        ['image_shape'])
+
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_params = {
-            'type': 'convnet_preprocessor',
-            'kwargs': {
-                'image_shape': (
-                    variant_spec
-                    ['environment_params']
-                    ['training']
-                    ['kwargs']
-                    ['image_shape']),
-                'output_size': M,
-                'num_conv_layers': tune.grid_search([3]),
-                'num_filters_per_layer': tune.grid_search([32]),
-                'pool_type': 'MaxPool2D',
-                'pool_size': tune.grid_search([2]),
-                'dense_hidden_layer_sizes': (),
-            },
-        }
+        preprocessor_type = "vae"
+        if preprocessor_type == "conv":
+            preprocessor_params = tune.grid_search([
+                {
+                    'type': 'ConvnetPreprocessor',
+                    'kwargs': {
+                        'image_shape': image_shape,
+                        'output_size': None,
+                        'conv_filters': (base_size, ) * num_layers,
+                        'conv_kernel_sizes': (conv_kernel_size, ) * num_layers,
+                        'conv_strides': (conv_strides, ) * num_layers,
+                        'normalization_type': normalization_type,
+                        'downsampling_type': downsampling_type,
+                        'use_global_average_pool': use_global_average_pool,
+                    },
+                }
+                for base_size in (64, )
+                for conv_kernel_size in (3, )
+                for conv_strides in (2, )
+                for normalization_type in (None, )
+                for num_layers in (4, )
+                for use_global_average_pool in (False, )
+                for downsampling_type in ('conv', )
+                if (image_shape[0] / (conv_strides ** num_layers)) >= 1
+            ])
+        elif preprocessor_type == "vae":
+            num_layers = 4
+            preprocessor_params = {
+                'type': 'VAEPreprocessor',
+                'kwargs': {
+                    'image_shape': (
+                        variant_spec
+                        ['environment_params']
+                        ['training']
+                        ['kwargs']
+                        ['image_shape']),
+                    'conv_filters': (64, ) * num_layers,
+                    'conv_kernel_sizes': (3, ) * num_layers,
+                    'conv_strides': (2, ) * num_layers,
+                    'normalization_type': None,
+                    'downsampling_type': 'conv',
+                    'output_size': 16,
+                    'beta': tune.grid_search([1.0, 3.0, 10.0, 30.0, 100.0]),
+                    'loss_weight': tune.grid_search([1e-3, 1e-2, 1e-1, 0.0]),
+                },
+            }
+        else:
+            raise NotImplementedError(preprocessor_type)
+
         variant_spec['policy_params']['kwargs']['hidden_layer_sizes'] = (M, M)
         variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
             preprocessor_params.copy())
 
+        variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (
+            tune.sample_from(lambda spec: (
+                spec.get('config', spec)
+                ['policy_params']
+                ['kwargs']
+                ['hidden_layer_sizes']
+            )))
         variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
             tune.sample_from(lambda spec: (
                 spec.get('config', spec)
@@ -439,30 +487,6 @@ def get_variant_spec_image(universe,
                 ['kwargs']
                 ['preprocessor_params']
             )))
-        variant_spec['Q_params']['kwargs']['hidden_layer_sizes'] = (M, M)
-    # if 'image' in task.lower() or 'image' in domain.lower():
-    #     preprocessor_params = {
-    #         'type': 'convnet_preprocessor',
-    #         'kwargs': {
-    #             'image_shape': (
-    #                 variant_spec
-    #                 ['environment_params']
-    #                 ['training']
-    #                 ['kwargs']
-    #                 ['image_shape']),
-    #             'output_size': M,
-    #             'conv_filters': (32, 64, 128),
-    #             'conv_kernel_sizes': (3, 3, 3),
-    #             'pool_type': 'MaxPool2D',
-    #             'pool_sizes': (2, 2, 2),
-    #             'pool_strides': (2, 2, 2),
-    #             'dense_hidden_layer_sizes': (),
-    #         },
-    #     }
-    #     variant_spec['policy_params']['kwargs']['preprocessor_params'] = (
-    #         preprocessor_params.copy())
-    #     variant_spec['Q_params']['kwargs']['preprocessor_params'] = (
-    #         preprocessor_params.copy())
 
     return variant_spec
 

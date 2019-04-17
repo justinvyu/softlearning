@@ -3,6 +3,7 @@ from numbers import Number
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 from tensorflow.python.training import training_util
 
 from .rl_algorithm import RLAlgorithm
@@ -31,7 +32,6 @@ class SAC(RLAlgorithm):
             Qs,
             pool,
             plotter=None,
-            tf_summaries=False,
 
             lr=3e-4,
             reward_scale=1.0,
@@ -81,7 +81,6 @@ class SAC(RLAlgorithm):
 
         self._pool = pool
         self._plotter = plotter
-        self._tf_summaries = tf_summaries
 
         self._policy_lr = lr
         self._Q_lr = lr
@@ -127,6 +126,8 @@ class SAC(RLAlgorithm):
         self._init_placeholders()
         self._init_actor_update()
         self._init_critic_update()
+        self._init_preprocessor_update()
+        self._init_diagnostics_ops()
 
     def train(self, *args, **kwargs):
         """Initiate training of the SAC instance."""
@@ -262,17 +263,9 @@ class SAC(RLAlgorithm):
                 learning_rate=self._Q_lr,
                 name='{}_{}_optimizer'.format(Q._name, i)
             ) for i, Q in enumerate(self._Qs))
+
         Q_training_ops = tuple(
-            tf.contrib.layers.optimize_loss(
-                Q_loss,
-                self.global_step,
-                learning_rate=self._Q_lr,
-                optimizer=Q_optimizer,
-                variables=Q.trainable_variables,
-                increment_global_step=False,
-                summaries=((
-                    "loss", "gradients", "gradient_norm", "global_gradient_norm"
-                ) if self._tf_summaries else ()))
+            Q_optimizer.minimize(loss=Q_loss, var_list=Q.trainable_variables)
             for i, (Q, Q_loss, Q_optimizer)
             in enumerate(zip(self._Qs, Q_losses, self._Q_optimizers)))
 
@@ -316,7 +309,7 @@ class SAC(RLAlgorithm):
         self._alpha = alpha
 
         if self._action_prior == 'normal':
-            policy_prior = tf.contrib.distributions.MultivariateNormalDiag(
+            policy_prior = tfp.distributions.MultivariateNormalDiag(
                 loc=tf.zeros(self._action_shape),
                 scale_diag=tf.ones(self._action_shape))
             policy_prior_log_probs = policy_prior.log_prob(actions)
@@ -338,23 +331,62 @@ class SAC(RLAlgorithm):
 
         assert policy_kl_losses.shape.as_list() == [None, 1]
 
+        self._policy_losses = policy_kl_losses
         policy_loss = tf.reduce_mean(policy_kl_losses)
 
         self._policy_optimizer = tf.train.AdamOptimizer(
             learning_rate=self._policy_lr,
             name="policy_optimizer")
-        policy_train_op = tf.contrib.layers.optimize_loss(
-            policy_loss,
-            self.global_step,
-            learning_rate=self._policy_lr,
-            optimizer=self._policy_optimizer,
-            variables=self._policy.trainable_variables,
-            increment_global_step=False,
-            summaries=(
-                "loss", "gradients", "gradient_norm", "global_gradient_norm"
-            ) if self._tf_summaries else ())
+
+        policy_train_op = self._policy_optimizer.minimize(
+            loss=policy_loss,
+            var_list=self._policy.trainable_variables)
 
         self._training_ops.update({'policy_train_op': policy_train_op})
+
+    def _init_preprocessor_update(self):
+        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
+            vae = self._policy._preprocessor.vae
+            encoder = vae.get_layer('encoder')
+            image_shape = self._policy._preprocessor.image_shape
+
+            normalized_images = (
+                (self._observations_ph[:, :np.prod(image_shape)] + 1.0) / 2.0)
+
+            loss_inputs = tf.reshape(
+                normalized_images,
+                (-1, *image_shape))
+            loss_outputs = vae(loss_inputs)
+
+            z_mean, z_log_var = encoder(loss_inputs)[:2]
+
+            self.loss_inputs = loss_inputs
+            self.loss_outputs = loss_outputs
+
+            reconstruction_loss = tf.keras.losses.binary_crossentropy(
+                loss_inputs, loss_outputs)
+
+            reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
+            reconstruction_loss *= np.prod(image_shape)
+            reconstruction_loss = self.vae_reconstruction_loss = (
+                tf.reduce_mean(reconstruction_loss))
+            kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+            kl_loss = tf.reduce_sum(kl_loss, axis=-1)
+            kl_loss *= -0.5
+            kl_loss = self.vae_kl_loss = tf.reduce_mean(kl_loss)
+
+            vae_loss = self.vae_loss = vae.loss_weight * (
+                reconstruction_loss + vae.beta * kl_loss)
+
+            vae_optimizer = tf.train.AdamOptimizer(
+                learning_rate=self._policy_lr,
+                name="vae_optimizer")
+
+            vae_train_op = vae_optimizer.minimize(
+                loss=vae_loss,
+                var_list=vae.trainable_variables)
+
+            self._training_ops.update({'vae_train_op': vae_train_op})
 
     def _init_training(self):
         self._update_target(tau=1.0)
@@ -444,6 +476,32 @@ class SAC(RLAlgorithm):
         # (TODO) Implement relabeling of terminal flags
         return new_batch
 
+    def _init_diagnostics_ops(self):
+        self._diagnostics_ops = {
+            **{
+                f'{key}-{metric_name}': metric_fn(values)
+                for key, values in (
+                        ('Q_values', self._Q_values),
+                        ('Q_losses', self._Q_losses),
+                        ('policy_losses', self._policy_losses))
+                for metric_name, metric_fn in (
+                        ('mean', tf.reduce_mean),
+                        ('std', lambda x: tfp.stats.stddev(
+                            x, sample_axis=None)))
+            },
+            'alpha': self._alpha,
+            'global_step': self.global_step,
+        }
+
+        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
+            self._diagnostics_ops.update({
+                'vae_loss': self.vae_loss,
+                'vae_kl_loss': self.vae_kl_loss,
+                'vae_reconstruction_loss': self.vae_reconstruction_loss,
+            })
+
+        return self._diagnostics_ops
+
     def get_diagnostics(self,
                         iteration,
                         batch,
@@ -459,20 +517,7 @@ class SAC(RLAlgorithm):
         """
 
         feed_dict = self._get_feed_dict(iteration, batch)
-
-        (Q_values, Q_losses, alpha, global_step) = self._session.run(
-            (self._Q_values,
-             self._Q_losses,
-             self._alpha,
-             self.global_step),
-            feed_dict)
-
-        diagnostics = OrderedDict({
-            'Q-avg': np.mean(Q_values),
-            'Q-std': np.std(Q_values),
-            'Q_loss': np.mean(Q_losses),
-            'alpha': alpha,
-        })
+        diagnostics = self._session.run(self._diagnostics_ops, feed_dict)
 
         policy_diagnostics = self._policy.get_diagnostics(
             batch['observations'])
