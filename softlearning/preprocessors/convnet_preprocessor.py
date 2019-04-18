@@ -8,6 +8,7 @@ from tensorflow.python.keras import regularizers
 
 from softlearning.utils.keras import PicklableKerasModel
 from .base_preprocessor import BasePreprocessor
+from .normalization import LayerNormalization
 
 
 def convnet(input_shape,
@@ -41,7 +42,7 @@ def convnet(input_shape,
         if normalization_type == 'batch':
             x = layers.BatchNormalization()(x)
         elif normalization_type == 'layer':
-            raise NotImplementedError(normalization_type)
+            x = LayerNormalization()(x)
         elif normalization_type == 'weight':
             raise NotImplementedError(normalization_type)
         else:
