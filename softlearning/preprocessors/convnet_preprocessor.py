@@ -184,6 +184,8 @@ def invert_convnet_v2(convnet):
             downsampling_type='conv',
             interpolation='nearest')
 
+    x = layers.Lambda(lambda x: tf.tanh(x))(x)
+
     model = models.Model(input_layer, x, name='inverted_convnet')
     return model
 
