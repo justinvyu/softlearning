@@ -1,12 +1,18 @@
+import os
+import uuid
 from collections import OrderedDict
 from numbers import Number
 
+import skimage
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow.python.training import training_util
 
 from .rl_algorithm import RLAlgorithm
+
+
+tfd = tfp.distributions
 
 
 def td_target(reward, discount, next_value):
@@ -330,13 +336,12 @@ class SAC(RLAlgorithm):
                 encoder = vae.get_layer('encoder')
                 image_shape = preprocessor.image_shape
 
-                normalized_images = (
-                    (self._observations_ph[:, :np.prod(image_shape)] + 1.0)
-                    / 2.0)
+                # normalized_images = (
+                #     (self._observations_ph[:, :np.prod(image_shape)] + 1.0)
+                #     / 2.0)
+                images = self._observations_ph[:, :np.prod(image_shape)]
 
-                loss_inputs = tf.reshape(
-                    normalized_images,
-                    (-1, *image_shape))
+                loss_inputs = tf.reshape(images, (-1, *image_shape))
                 loss_outputs = vae(loss_inputs)
 
                 z_mean, z_log_var = encoder(loss_inputs)[:2]
@@ -445,6 +450,69 @@ class SAC(RLAlgorithm):
 
         return self._diagnostics_ops
 
+    def _vae_diagnostics(self,
+                         iteration,
+                         batch,
+                         training_paths,
+                         evaluation_paths):
+        image_scale = 32 // self._training_environment.unwrapped.image_shape[0]
+
+        assert self._Qs[0]._preprocessor is self._Qs[1]._preprocessor
+        preprocessors = (
+            ('policy', self._policy._preprocessor),
+            ('Q', self._Qs[0]._preprocessor),
+        )
+
+        image_dir = os.path.join(os.getcwd(), 'image-samples', 'vae')
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
+
+        for (preprocessor_name, preprocessor) in preprocessors:
+            vae = preprocessor.vae
+            encoder = vae.get_layer('encoder')
+            decoder = vae.get_layer('decoder')
+
+            image_shape = preprocessor.image_shape
+            image_size = np.prod(image_shape)
+            encoded_shape = encoder.output[-1].shape[1:].as_list()
+
+            num_images = 4
+            # Generate never-before-seen images.
+            z = np.random.normal(
+                loc=np.zeros(encoded_shape),
+                scale=1.0,
+                size=(num_images, *encoded_shape))
+            xtilde = decoder.predict(z)
+
+            # Examine reconstruction of random images from pool.
+            random_observations = self._pool.random_batch(
+                num_images)['observations']
+            x = random_observations[:, :image_size].reshape((-1, *image_shape))
+            xhat = vae.predict(x)
+
+            large_x = (
+                x.repeat(image_scale, axis=-3).repeat(image_scale, axis=-2))
+            large_xhat = (
+                xhat.repeat(image_scale, axis=-3).repeat(image_scale, axis=-2))
+            large_xtilde = (
+                xtilde
+                .repeat(image_scale, axis=-3)
+                .repeat(image_scale, axis=-2))
+
+            column_large_x = large_x.reshape((-1, *large_x.shape[-2:]))
+            column_large_xhat = large_xhat.reshape(
+                (-1, *large_xhat.shape[-2:]))
+            column_large_xtilde = large_xtilde.reshape(
+                (-1, *large_xtilde.shape[-2:]))
+            grid_x = np.concatenate((
+                column_large_x, column_large_xhat, column_large_xtilde,
+            ), axis=-2)
+            unnormalized_x = ((grid_x + 1.0) * 255.0 / 2.0).astype(np.uint8)
+            skimage.io.imsave(
+                os.path.join(
+                    image_dir, f'{iteration}-{preprocessor_name}.png'),
+                unnormalized_x)
+
     def get_diagnostics(self,
                         iteration,
                         batch,
@@ -468,6 +536,11 @@ class SAC(RLAlgorithm):
             f'policy/{key}': value
             for key, value in policy_diagnostics.items()
         })
+
+        if (iteration % 1000 == 0
+            and self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor'):
+            self._vae_diagnostics(
+                iteration, batch, training_paths, evaluation_paths)
 
         if self._plotter:
             self._plotter.draw()
