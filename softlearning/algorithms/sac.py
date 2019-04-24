@@ -441,9 +441,20 @@ class SAC(RLAlgorithm):
         }
 
         if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            self._diagnostics_ops.update(self.vae_reconstruction_losses)
-            self._diagnostics_ops.update(self.vae_kl_losses)
-            self._diagnostics_ops.update(self.vae_losses)
+            self._diagnostics_ops.update({
+                **{
+                    f"{key}-reconstruction_loss": value
+                    for key, value in self.vae_reconstruction_losses.items()
+                },
+                **{
+                    f"{key}-kl_loss": value
+                    for key, value in self.vae_kl_losses.items()
+                },
+                **{
+                    f"{key}-loss": value
+                    for key, value in self.vae_losses.items()
+                },
+            })
 
         return self._diagnostics_ops
 
