@@ -8,7 +8,10 @@ from tensorflow.python.keras import regularizers
 
 from softlearning.utils.keras import PicklableKerasModel
 from .base_preprocessor import BasePreprocessor
-from .normalization import LayerNormalization
+from .normalization import (
+    LayerNormalization,
+    GroupNormalization,
+    InstanceNormalization)
 
 
 def convnet(input_shape,
@@ -18,6 +21,7 @@ def convnet(input_shape,
             conv_strides=(2, 2, 2),
             use_global_average_pool=False,
             normalization_type=None,
+            normalization_kwargs={},
             downsampling_type='conv',
             name='convnet',
             *args,
@@ -40,9 +44,13 @@ def convnet(input_shape,
         )(x)
 
         if normalization_type == 'batch':
-            x = layers.BatchNormalization()(x)
+            x = layers.BatchNormalization(**normalization_kwargs)(x)
         elif normalization_type == 'layer':
-            x = LayerNormalization()(x)
+            x = LayerNormalization(**normalization_kwargs)(x)
+        elif normalization_type == 'group':
+            x = GroupNormalization(**normalization_kwargs)(x)
+        elif normalization_type == 'instance':
+            x = InstanceNormalization(**normalization_kwargs)(x)
         elif normalization_type == 'weight':
             raise NotImplementedError(normalization_type)
         else:
@@ -87,6 +95,7 @@ def upsampling_block(x,
                      normalization_type=None,
                      downsampling_type='pool',
                      interpolation='nearest',
+                     normalization_kwargs={},
                      **kwargs):
     x = layers.UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
     kernel_size = np.array(kernel_size)
@@ -106,9 +115,13 @@ def upsampling_block(x,
     )(x)
 
     if normalization_type == 'batch':
-        x = layers.BatchNormalization()(x)
+        x = layers.BatchNormalization(**normalization_kwargs)(x)
     elif normalization_type == 'layer':
-        raise NotImplementedError(normalization_type)
+        x = LayerNormalization(**normalization_kwargs)(x)
+    elif normalization_type == 'group':
+        x = GroupNormalization(**normalization_kwargs)(x)
+    elif normalization_type == 'instance':
+        x = InstanceNormalization(**normalization_kwargs)(x)
     elif normalization_type == 'weight':
         raise NotImplementedError(normalization_type)
     else:
