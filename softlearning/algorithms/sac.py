@@ -355,9 +355,6 @@ class SAC(RLAlgorithm):
                 else:
                     raise NotImplementedError(loss_type)
 
-                reconstruction_loss = tf.keras.losses.binary_crossentropy(
-                    loss_inputs, loss_outputs)
-
                 reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
                 reconstruction_loss *= np.prod(image_shape)
                 reconstruction_loss = self.vae_reconstruction_losses[preprocessor_name] = (
