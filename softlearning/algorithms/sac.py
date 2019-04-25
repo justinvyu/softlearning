@@ -461,7 +461,7 @@ class SAC(RLAlgorithm):
 
         if self._base_env.use_super_state_reward():
             batch_super_obs = batch['super_observations']
-            new_batch_super_obs = self._base_env.relabel_obs_w_goal(batch_super_obs, new_goal)
+            new_batch_super_obs = super(self._base_env).relabel_obs_w_goal(batch_super_obs, new_goal)
             new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_super_obs, batch_act)[0], 1)
         else:
             new_batch_rew = np.expand_dims(self._base_env.compute_rewards(new_batch_obs, batch_act)[0], 1)
