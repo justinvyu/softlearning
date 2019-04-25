@@ -73,7 +73,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(1e3),
-            'her_iters': tune.grid_search([1]),
+            'her_iters': tune.grid_search([0, 4]),
         }
     },
     'SQL': {
@@ -238,7 +238,7 @@ ENVIRONMENT_PARAMS = {
             'isHARDARE': False,
         },
         'ScrewV2-v0': {
-            'object_target_distance_reward_fn': NegativeLogLossFn(0),
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'pose_difference_cost_coeff': 0,
             'joint_velocity_cost_coeff': 0,
             'joint_acceleration_cost_coeff': 0,
@@ -249,6 +249,7 @@ ENVIRONMENT_PARAMS = {
             'reset_free': True,
         },
         'ImageScrewV2-v0': {
+            'object_target_distance_reward_fn': NegativeLogLossFn(1e-6),
             'is_hardware': False,
             'image_shape': (32, 32, 3),
             'reset_free': False,
@@ -420,7 +421,7 @@ def get_variant_spec_image(universe,
         ['image_shape'])
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_type = "vae"
+        preprocessor_type = "conv"
         if preprocessor_type == "conv":
             preprocessor_params = tune.grid_search([
                 {

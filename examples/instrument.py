@@ -211,14 +211,15 @@ def run_example_local(example_module_name, example_argv, local_mode=False):
     experiment_id, experiment = generate_experiment(
         trainable_class, variant_spec, example_args)
     experiments = {experiment_id: experiment}
-
+    from datetime import datetime
+    datetime_string = datetime.now().isoformat()
     ray.init(
         num_cpus=example_args.cpus,
         num_gpus=example_args.gpus,
         resources=example_args.resources or {},
         local_mode=local_mode,
         include_webui=example_args.include_webui,
-        temp_dir='/tmp/ray-henry')
+        temp_dir=os.path.join('/tmp/ray-henry', datetime_string))
 
     tune.run_experiments(
         experiments,
