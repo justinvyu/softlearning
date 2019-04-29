@@ -38,7 +38,6 @@ DEFAULT_MAX_PATH_LENGTH = 1000
 MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DEnv': 50,
     'DClaw3': 250,
-    'ImageDClaw3': 100,
     'HardwareDClaw3': 100,
     'Pendulum': 200,
     'Pusher2d': 100,
@@ -120,7 +119,6 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Point2DEnv': int(200),
     'Reacher': int(200),
     'DClaw3': int(200),
-    'ImageDClaw3': int(300),
     'HardwareDClaw3': int(100),
     'Pendulum': 10,
     'Sawyer': int(1e4),
@@ -378,8 +376,6 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
                           ['kwargs']
                           ['epoch_length'])
             )),
-            # NUM_EPOCHS_PER_DOMAIN.get(
-            #     domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS
         },
     }
 
@@ -429,27 +425,6 @@ def get_variant_spec_image(universe,
                 for downsampling_type in ('conv', )
                 if (image_shape[0] / (conv_strides ** num_layers)) >= 1
             ])
-        elif preprocessor_type == "vae":
-            num_layers = 4
-            preprocessor_params = {
-                'type': 'VAEPreprocessor',
-                'kwargs': {
-                    'image_shape': (
-                        variant_spec
-                        ['environment_params']
-                        ['training']
-                        ['kwargs']
-                        ['image_shape']),
-                    'conv_filters': (64, ) * num_layers,
-                    'conv_kernel_sizes': (3, ) * num_layers,
-                    'conv_strides': (2, ) * num_layers,
-                    'normalization_type': None,
-                    'downsampling_type': 'conv',
-                    'output_size': 16,
-                    'beta': tune.grid_search([1.0, 3.0, 10.0, 30.0, 100.0]),
-                    'loss_weight': tune.grid_search([1e-3, 1e-2, 1e-1, 0.0]),
-                },
-            }
         else:
             raise NotImplementedError(preprocessor_type)
 

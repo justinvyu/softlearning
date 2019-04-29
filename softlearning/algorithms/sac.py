@@ -121,7 +121,6 @@ class SAC(RLAlgorithm):
         self._init_placeholders()
         self._init_actor_update()
         self._init_critic_update()
-        self._init_preprocessor_update()
         self._init_diagnostics_ops()
 
     def _init_placeholders(self):
@@ -307,67 +306,6 @@ class SAC(RLAlgorithm):
 
         self._training_ops.update({'policy_train_op': policy_train_op})
 
-    def _init_preprocessor_update(self):
-        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            assert self._Qs[0]._preprocessor is self._Qs[1]._preprocessor
-            preprocessors = (
-                ('policy', self._policy._preprocessor),
-                ('Q', self._Qs[0]._preprocessor),
-            )
-
-            loss_type = 'mean_squared_error'
-            self.vae_reconstruction_losses = {}
-            self.vae_kl_losses = {}
-            self.vae_losses = {}
-
-            for (preprocessor_name, preprocessor) in preprocessors:
-                vae = preprocessor.vae
-                encoder = vae.get_layer('encoder')
-                image_shape = preprocessor.image_shape
-
-                # normalized_images = (
-                #     (self._observations_ph[:, :np.prod(image_shape)] + 1.0)
-                #     / 2.0)
-                images = self._observations_ph[:, :np.prod(image_shape)]
-
-                loss_inputs = tf.reshape(images, (-1, *image_shape))
-                loss_outputs = vae(loss_inputs)
-
-                z_mean, z_log_var = encoder(loss_inputs)[:2]
-
-                if loss_type == 'binary_crossentropy':
-                    reconstruction_loss = tf.keras.losses.binary_crossentropy(
-                        loss_inputs, loss_outputs)
-                elif loss_type == 'mean_squared_error':
-                    reconstruction_loss = tf.keras.losses.mean_squared_error(
-                        loss_inputs, loss_outputs)
-                else:
-                    raise NotImplementedError(loss_type)
-
-                reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
-                reconstruction_loss *= np.prod(image_shape)
-                reconstruction_loss = self.vae_reconstruction_losses[preprocessor_name] = (
-                    tf.reduce_mean(reconstruction_loss))
-                kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
-                kl_loss = tf.reduce_sum(kl_loss, axis=-1)
-                kl_loss *= -0.5
-                kl_loss = self.vae_kl_losses[preprocessor_name] = tf.reduce_mean(kl_loss)
-
-                vae_loss = self.vae_losses[preprocessor_name] = vae.loss_weight * (
-                    reconstruction_loss + vae.beta * kl_loss)
-
-                vae_optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self._policy_lr,
-                    name=f"{preprocessor_name}_vae_optimizer")
-
-                vae_train_op = vae_optimizer.minimize(
-                    loss=vae_loss,
-                    var_list=vae.trainable_variables)
-
-                self._training_ops.update({
-                    f'{preprocessor_name}_vae_train_op': vae_train_op
-                })
-
     def _init_diagnostics_ops(self):
         diagnosables = OrderedDict((
             ('Q_value', self._Q_values),
@@ -386,22 +324,6 @@ class SAC(RLAlgorithm):
             for key, values in diagnosables.items()
             for metric_name, metric_fn in diagnostic_metrics.items()
         ])
-
-        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            self._diagnostics_ops.update({
-                **{
-                    f"{key}-reconstruction_loss": value
-                    for key, value in self.vae_reconstruction_losses.items()
-                },
-                **{
-                    f"{key}-kl_loss": value
-                    for key, value in self.vae_kl_losses.items()
-                },
-                **{
-                    f"{key}-loss": value
-                    for key, value in self.vae_losses.items()
-                },
-            })
 
     def _init_training(self):
         self._update_target(tau=1.0)
@@ -447,69 +369,6 @@ class SAC(RLAlgorithm):
 
         return feed_dict
 
-    def _vae_diagnostics(self,
-                         iteration,
-                         batch,
-                         training_paths,
-                         evaluation_paths):
-        image_scale = 32 // self._training_environment.unwrapped.image_shape[0]
-
-        assert self._Qs[0]._preprocessor is self._Qs[1]._preprocessor
-        preprocessors = (
-            ('policy', self._policy._preprocessor),
-            ('Q', self._Qs[0]._preprocessor),
-        )
-
-        image_dir = os.path.join(os.getcwd(), 'image-samples', 'vae')
-        if not os.path.exists(image_dir):
-            os.makedirs(image_dir)
-
-        for (preprocessor_name, preprocessor) in preprocessors:
-            vae = preprocessor.vae
-            encoder = vae.get_layer('encoder')
-            decoder = vae.get_layer('decoder')
-
-            image_shape = preprocessor.image_shape
-            image_size = np.prod(image_shape)
-            encoded_shape = encoder.output[-1].shape[1:].as_list()
-
-            num_images = 4
-            # Generate never-before-seen images.
-            z = np.random.normal(
-                loc=np.zeros(encoded_shape),
-                scale=1.0,
-                size=(num_images, *encoded_shape))
-            xtilde = decoder.predict(z)
-
-            # Examine reconstruction of random images from pool.
-            random_observations = self._pool.random_batch(
-                num_images)['observations']
-            x = random_observations[:, :image_size].reshape((-1, *image_shape))
-            xhat = vae.predict(x)
-
-            large_x = (
-                x.repeat(image_scale, axis=-3).repeat(image_scale, axis=-2))
-            large_xhat = (
-                xhat.repeat(image_scale, axis=-3).repeat(image_scale, axis=-2))
-            large_xtilde = (
-                xtilde
-                .repeat(image_scale, axis=-3)
-                .repeat(image_scale, axis=-2))
-
-            column_large_x = large_x.reshape((-1, *large_x.shape[-2:]))
-            column_large_xhat = large_xhat.reshape(
-                (-1, *large_xhat.shape[-2:]))
-            column_large_xtilde = large_xtilde.reshape(
-                (-1, *large_xtilde.shape[-2:]))
-            grid_x = np.concatenate((
-                column_large_x, column_large_xhat, column_large_xtilde,
-            ), axis=-2)
-            unnormalized_x = ((grid_x + 1.0) * 255.0 / 2.0).astype(np.uint8)
-            skimage.io.imsave(
-                os.path.join(
-                    image_dir, f'{iteration}-{preprocessor_name}.png'),
-                unnormalized_x)
-
     def get_diagnostics(self,
                         iteration,
                         batch,
@@ -532,11 +391,6 @@ class SAC(RLAlgorithm):
             for key, value in
             self._policy.get_diagnostics(batch['observations']).items()
         ]))
-
-        if (iteration % 1000 == 0
-            and self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor'):
-            self._vae_diagnostics(
-                iteration, batch, training_paths, evaluation_paths)
 
         if self._plotter:
             self._plotter.draw()

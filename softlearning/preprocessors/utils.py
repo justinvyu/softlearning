@@ -44,23 +44,9 @@ def get_feedforward_preprocessor(observation_space,
     return preprocessor
 
 
-def get_vae_preprocessor(observation_space,
-                         name='vae_preprocessor',
-                         **kwargs):
-    from .vae_preprocessor import VAEPreprocessor
-    preprocessor = VAEPreprocessor(
-        observation_space=observation_space,
-        name=name,
-        **kwargs)
-
-    return preprocessor
-
-
 PREPROCESSOR_FUNCTIONS = {
     'ConvnetPreprocessor': get_convnet_preprocessor,
-    'Resnet6Preprocessor': get_resnet6_preprocessor,
     'FeedforwardPreprocessor': get_feedforward_preprocessor,
-    'VAEPreprocessor': get_vae_preprocessor,
     None: lambda *args, **kwargs: None
 }
 
