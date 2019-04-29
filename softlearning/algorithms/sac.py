@@ -7,7 +7,6 @@ import skimage
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorflow.python.training import training_util
 
 from .rl_algorithm import RLAlgorithm
 
@@ -124,16 +123,6 @@ class SAC(RLAlgorithm):
         self._init_critic_update()
         self._init_preprocessor_update()
         self._init_diagnostics_ops()
-
-    def train(self, *args, **kwargs):
-        """Initiate training of the SAC instance."""
-        return self._train(*args, **kwargs)
-
-    def _init_global_step(self):
-        self.global_step = training_util.get_or_create_global_step()
-        self._training_ops.update({
-            'increment_global_step': training_util._increment_global_step(1)
-        })
 
     def _init_placeholders(self):
         """Create input placeholders for the SAC algorithm.
@@ -379,6 +368,41 @@ class SAC(RLAlgorithm):
                     f'{preprocessor_name}_vae_train_op': vae_train_op
                 })
 
+    def _init_diagnostics_ops(self):
+        diagnosables = OrderedDict((
+            ('Q_value', self._Q_values),
+            ('Q_loss', self._Q_losses),
+            ('policy_loss', self._policy_losses),
+            ('alpha', self._alpha)
+        ))
+
+        diagnostic_metrics = OrderedDict((
+            ('mean', tf.reduce_mean),
+            ('std', lambda x: tfp.stats.stddev(x, sample_axis=None)),
+        ))
+
+        self._diagnostics_ops = OrderedDict([
+            (f'{key}-{metric_name}', metric_fn(values))
+            for key, values in diagnosables.items()
+            for metric_name, metric_fn in diagnostic_metrics.items()
+        ])
+
+        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
+            self._diagnostics_ops.update({
+                **{
+                    f"{key}-reconstruction_loss": value
+                    for key, value in self.vae_reconstruction_losses.items()
+                },
+                **{
+                    f"{key}-kl_loss": value
+                    for key, value in self.vae_kl_losses.items()
+                },
+                **{
+                    f"{key}-loss": value
+                    for key, value in self.vae_losses.items()
+                },
+            })
+
     def _init_training(self):
         self._update_target(tau=1.0)
 
@@ -422,41 +446,6 @@ class SAC(RLAlgorithm):
             feed_dict[self._iteration_ph] = iteration
 
         return feed_dict
-
-    def _init_diagnostics_ops(self):
-        self._diagnostics_ops = {
-            **{
-                f'{key}-{metric_name}': metric_fn(values)
-                for key, values in (
-                        ('Q_values', self._Q_values),
-                        ('Q_losses', self._Q_losses),
-                        ('policy_losses', self._policy_losses))
-                for metric_name, metric_fn in (
-                        ('mean', tf.reduce_mean),
-                        ('std', lambda x: tfp.stats.stddev(
-                            x, sample_axis=None)))
-            },
-            'alpha': self._alpha,
-            'global_step': self.global_step,
-        }
-
-        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            self._diagnostics_ops.update({
-                **{
-                    f"{key}-reconstruction_loss": value
-                    for key, value in self.vae_reconstruction_losses.items()
-                },
-                **{
-                    f"{key}-kl_loss": value
-                    for key, value in self.vae_kl_losses.items()
-                },
-                **{
-                    f"{key}-loss": value
-                    for key, value in self.vae_losses.items()
-                },
-            })
-
-        return self._diagnostics_ops
 
     def _vae_diagnostics(self,
                          iteration,
@@ -538,12 +527,11 @@ class SAC(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
         diagnostics = self._session.run(self._diagnostics_ops, feed_dict)
 
-        policy_diagnostics = self._policy.get_diagnostics(
-            batch['observations'])
-        diagnostics.update({
-            f'policy/{key}': value
-            for key, value in policy_diagnostics.items()
-        })
+        diagnostics.update(OrderedDict([
+            (f'policy/{key}', value)
+            for key, value in
+            self._policy.get_diagnostics(batch['observations']).items()
+        ]))
 
         if (iteration % 1000 == 0
             and self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor'):
