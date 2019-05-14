@@ -1,12 +1,17 @@
+import os
+import uuid
 from collections import OrderedDict
 from numbers import Number
 
+import skimage
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorflow.python.training import training_util
 
 from .rl_algorithm import RLAlgorithm
+
+
+tfd = tfp.distributions
 
 
 def td_target(reward, discount, next_value):
@@ -126,18 +131,7 @@ class SAC(RLAlgorithm):
         self._init_placeholders()
         self._init_actor_update()
         self._init_critic_update()
-        self._init_preprocessor_update()
         self._init_diagnostics_ops()
-
-    def train(self, *args, **kwargs):
-        """Initiate training of the SAC instance."""
-        return self._train(*args, **kwargs)
-
-    def _init_global_step(self):
-        self.global_step = training_util.get_or_create_global_step()
-        self._training_ops.update({
-            'increment_global_step': training_util._increment_global_step(1)
-        })
 
     def _init_placeholders(self):
         """Create input placeholders for the SAC algorithm.
@@ -344,49 +338,24 @@ class SAC(RLAlgorithm):
 
         self._training_ops.update({'policy_train_op': policy_train_op})
 
-    def _init_preprocessor_update(self):
-        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            vae = self._policy._preprocessor.vae
-            encoder = vae.get_layer('encoder')
-            image_shape = self._policy._preprocessor.image_shape
+    def _init_diagnostics_ops(self):
+        diagnosables = OrderedDict((
+            ('Q_value', self._Q_values),
+            ('Q_loss', self._Q_losses),
+            ('policy_loss', self._policy_losses),
+            ('alpha', self._alpha)
+        ))
 
-            normalized_images = (
-                (self._observations_ph[:, :np.prod(image_shape)] + 1.0) / 2.0)
+        diagnostic_metrics = OrderedDict((
+            ('mean', tf.reduce_mean),
+            ('std', lambda x: tfp.stats.stddev(x, sample_axis=None)),
+        ))
 
-            loss_inputs = tf.reshape(
-                normalized_images,
-                (-1, *image_shape))
-            loss_outputs = vae(loss_inputs)
-
-            z_mean, z_log_var = encoder(loss_inputs)[:2]
-
-            self.loss_inputs = loss_inputs
-            self.loss_outputs = loss_outputs
-
-            reconstruction_loss = tf.keras.losses.binary_crossentropy(
-                loss_inputs, loss_outputs)
-
-            reconstruction_loss = tf.reshape(reconstruction_loss, (-1,))
-            reconstruction_loss *= np.prod(image_shape)
-            reconstruction_loss = self.vae_reconstruction_loss = (
-                tf.reduce_mean(reconstruction_loss))
-            kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
-            kl_loss = tf.reduce_sum(kl_loss, axis=-1)
-            kl_loss *= -0.5
-            kl_loss = self.vae_kl_loss = tf.reduce_mean(kl_loss)
-
-            vae_loss = self.vae_loss = vae.loss_weight * (
-                reconstruction_loss + vae.beta * kl_loss)
-
-            vae_optimizer = tf.train.AdamOptimizer(
-                learning_rate=self._policy_lr,
-                name="vae_optimizer")
-
-            vae_train_op = vae_optimizer.minimize(
-                loss=vae_loss,
-                var_list=vae.trainable_variables)
-
-            self._training_ops.update({'vae_train_op': vae_train_op})
+        self._diagnostics_ops = OrderedDict([
+            (f'{key}-{metric_name}', metric_fn(values))
+            for key, values in diagnosables.items()
+            for metric_name, metric_fn in diagnostic_metrics.items()
+        ])
 
     def _init_training(self):
         self._update_target(tau=1.0)
@@ -519,12 +488,11 @@ class SAC(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
         diagnostics = self._session.run(self._diagnostics_ops, feed_dict)
 
-        policy_diagnostics = self._policy.get_diagnostics(
-            batch['observations'])
-        diagnostics.update({
-            f'policy/{key}': value
-            for key, value in policy_diagnostics.items()
-        })
+        diagnostics.update(OrderedDict([
+            (f'policy/{key}', value)
+            for key, value in
+            self._policy.get_diagnostics(batch['observations']).items()
+        ]))
 
         if self._goal_classifier:
             diagnostics.update({'goal_classifier/avg_reward': np.mean(feed_dict[self._rewards_ph])})

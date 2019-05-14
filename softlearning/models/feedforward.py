@@ -20,6 +20,8 @@ def feedforward_model(input_shapes,
 
     if preprocessors is None:
         preprocessors = (None, ) * len(inputs)
+    else:
+        assert len(set(preprocessors) - set([None])) == 1
 
     preprocessed_inputs = [
         preprocessor.transform(input_) if preprocessor is not None else input_
@@ -41,5 +43,7 @@ def feedforward_model(input_shapes,
     )(out)
 
     model = PicklableKerasModel(inputs, out, name=name)
+    if any(preprocessors):
+        model._preprocessor = next(x for x in preprocessors if x is not None)
 
     return model
