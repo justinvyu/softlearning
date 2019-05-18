@@ -20,8 +20,6 @@ def feedforward_model(input_shapes,
 
     if preprocessors is None:
         preprocessors = (None, ) * len(inputs)
-    else:
-        assert len(set(preprocessors) - set([None])) == 1
 
     preprocessed_inputs = [
         preprocessor.transform(input_) if preprocessor is not None else input_
