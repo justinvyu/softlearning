@@ -41,6 +41,7 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'HardwareDClaw3': 100,
     'Pendulum': 200,
     'Pusher2d': 100,
+    'InvisibleArm': 250,
 }
 
 ALGORITHM_PARAMS_BASE = {
@@ -52,7 +53,7 @@ ALGORITHM_PARAMS_BASE = {
         'n_train_repeat': tune.grid_search([1]),
         'eval_render_mode': None,
         'eval_n_episodes': 3, # num of eval rollouts
-        'eval_deterministic': True,
+        'eval_deterministic': False,
         'discount': 0.99,
         'tau': 5e-3,
         'reward_scale': 1.0,
@@ -72,7 +73,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(1e3),
-            'her_iters': tune.grid_search([0, 4]),
+            'her_iters': tune.grid_search([0]),
         }
     },
     'SQL': {
@@ -333,7 +334,45 @@ ENVIRONMENT_PARAMS = {
                 'PickPlaceSingle',
                 'Stack',
         )
-    }
+    },
+    'InvisibleArm': {
+        'FreeFloatManipulation': {
+            'has_renderer': False,
+            'has_offscreen_renderer': True,
+            'use_camera_obs': False,
+            'camera_name': 'agentview',
+            'use_object_obs': True,
+            'position_reward_weight': 10.0,
+            'orientation_reward_weight': 1.0,
+            'control_freq': 10,
+            'objects_type': 'screw',
+            'observation_keys': (
+                # 'joint_pos',
+                # 'joint_vel',
+                'gripper_qpos',
+                # 'gripper_qvel',
+                'eef_pos',
+                'eef_quat',
+                # 'robot-state',
+                # 'custom-cube_position',
+                # 'custom-cube_quaternion',
+                # 'custom-cube_to_eef_pos',
+                # 'custom-cube_to_eef_quat',
+                # 'custom-cube-visual_position',
+                # 'custom-cube-visual_quaternion',
+                'screw_position',
+                'screw_quaternion',
+                # 'screw_to_eef_pos',
+                # 'screw_to_eef_quat',
+                'screw-visual_position',
+                'screw-visual_quaternion',
+            ),
+            'target_x_range': [-0.1, 0.1],
+            'target_y_range': [-0.1, 0.1],
+            'target_z_rotation_range': [-np.pi, np.pi],
+            'num_goals': tune.grid_search([1,2,4,8])
+        }
+    },
 }
 
 NUM_CHECKPOINTS = 10

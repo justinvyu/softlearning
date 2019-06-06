@@ -205,7 +205,8 @@ def run_example_local(example_module_name, example_argv, local_mode=False):
     trainable_class = example_module.get_trainable_class(example_args)
 
     experiment_kwargs = generate_experiment_kwargs(variant_spec, example_args)
-
+    from datetime import datetime
+    datetime_string = datetime.now().isoformat()
     ray.init(
         num_cpus=example_args.cpus,
         num_gpus=example_args.gpus,
@@ -217,7 +218,7 @@ def run_example_local(example_module_name, example_argv, local_mode=False):
     tune.run(
         trainable_class,
         **experiment_kwargs,
-        with_server=example_args.with_server,
+#        with_server=example_args.with_server,
         server_port=example_args.server_port,
         scheduler=None,
         reuse_actors=True)

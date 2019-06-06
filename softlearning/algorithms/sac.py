@@ -105,7 +105,7 @@ class SAC(RLAlgorithm):
         self._store_extra_policy_info = store_extra_policy_info
 
         self._her_iters = her_iters
-        self._base_env = training_environment._env.env
+        self._base_env = training_environment.unwrapped
 
         self._save_full_state = save_full_state
         self._save_eval_paths = save_eval_paths

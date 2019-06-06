@@ -77,6 +77,9 @@ class RobosuiteAdapter(SoftlearningEnv):
                 (-1.0, 1.0),
                 "Ensure spaces are normalized.")
 
+        # if self.normalize:
+        #     from softlearning.environments.gym.wrappers import NormalizeActionWrapper
+        #     env = NormalizeActionWrapper(env)
         self._env = env
 
     @property
@@ -131,10 +134,26 @@ class RobosuiteAdapter(SoftlearningEnv):
     def reset(self, *args, **kwargs):
         return self._env.reset(*args, **kwargs)
 
-    def render(self, *args, **kwargs):
-        # TODO(Alacarter): Implement rendering so that self._env.viewer.render()
-        # can take in args and kwargs
-        raise NotImplementedError
+    def render(self,
+               *args,
+               mode="human",
+               camera_name=None,
+               width=None,
+               height=None,
+               depth=None,
+               **kwargs):
+        if mode == "human":
+            raise NotImplementedError(
+                "TODO(hartikainen): Implement rendering so that"
+                " self._env.viewer.render() works with human mode.")
+        elif mode == "rgb_array":
+            return self._env.sim.render(
+                camera_name=camera_name or self._env.camera_name,
+                width=width or self._env.camera_width,
+                height=height or self._env.camera_height,
+                depth=depth or self._env.camera_depth)[::-1]
+
+        raise NotImplementedError(mode)
 
     def close(self, *args, **kwargs):
         return self._env.close(*args, **kwargs)
