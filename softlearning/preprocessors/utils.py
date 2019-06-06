@@ -1,45 +1,18 @@
 from copy import deepcopy
 
 
-def get_convnet_preprocessor(observation_space,
-                             name='convnet_preprocessor',
-                             **kwargs):
-    from .convnet_preprocessor import ConvnetPreprocessor
+def get_convnet_preprocessor(name='convnet_preprocessor', **kwargs):
+    from softlearning.models.convnet import convnet_model
 
-    if 'num_conv_layers' in kwargs:
-        num_conv_layers = kwargs.pop('num_conv_layers')
-        num_filters_per_layer = kwargs.pop('num_filters_per_layer')
-        pool_size = kwargs.pop('pool_size')
-
-        kwargs.update({
-            'conv_filters': (num_filters_per_layer, ) * num_conv_layers,
-            'conv_kernel_sizes': ((3, 3), ) * num_conv_layers,
-            'pool_sizes': ((pool_size, pool_size), ) * num_conv_layers,
-            'pool_strides': (pool_size, ) * num_conv_layers,
-        })
-
-    preprocessor = ConvnetPreprocessor(
-        observation_space=observation_space, name=name, **kwargs)
+    preprocessor = convnet_model(name=name, **kwargs)
 
     return preprocessor
 
 
-def get_resnet6_preprocessor(observation_space,
-                             name='convnet_preprocessor',
-                             **kwargs):
-    from .resnet_preprocessor import Resnet6Preprocessor
-    preprocessor = Resnet6Preprocessor(
-        observation_space=observation_space, name=name, **kwargs)
+def get_feedforward_preprocessor(name='feedforward_preprocessor', **kwargs):
+    from softlearning.models.feedforward import feedforward_model
 
-    return preprocessor
-
-
-def get_feedforward_preprocessor(observation_space,
-                                 name='feedforward_preprocessor',
-                                 **kwargs):
-    from .feedforward_preprocessor import FeedforwardPreprocessor
-    preprocessor = FeedforwardPreprocessor(
-        observation_space=observation_space, name=name, **kwargs)
+    preprocessor = feedforward_model(name=name, **kwargs)
 
     return preprocessor
 
@@ -63,7 +36,6 @@ def get_preprocessor_from_params(env, preprocessor_params, *args, **kwargs):
 
     preprocessor = PREPROCESSOR_FUNCTIONS[
         preprocessor_type](
-            env.observation_space,
             *args,
             **preprocessor_kwargs,
             **kwargs)
