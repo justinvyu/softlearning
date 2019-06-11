@@ -58,8 +58,7 @@ ALGORITHM_PARAMS_BASE = {
         'train_every_n_steps': 1,
         'n_train_repeat': tune.grid_search([1]),
         'eval_render_kwargs': {},
-        'eval_render_mode': None,
-        'eval_n_episodes': 3, # num of eval rollouts
+        'eval_n_episodes': 1, # num of eval rollouts
         'eval_deterministic': False,
         'discount': 0.99,
         'tau': 5e-3,
@@ -127,6 +126,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'Reacher': int(200),
     'DClaw3': int(200),
     'HardwareDClaw3': int(100),
+    'InvisibleArm': int(1e3),
     'Pendulum': 10,
     'Sawyer': int(1e4),
     'ball_in_cup': int(2e4),
