@@ -9,8 +9,6 @@ class SimpleReplayPool(FlexibleReplayPool):
 
         self._observation_space = observation_space
         self._action_space = action_space
-        self._include_images = include_images
-        self._super_observation_space_shape = super_observation_space_shape
 
         fields = {
             **{

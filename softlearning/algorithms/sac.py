@@ -49,7 +49,7 @@ class SAC(RLAlgorithm):
             action_prior='uniform',
             reparameterize=False,
             her_iters=0,
-            goal_classifier_params_direc=None,
+            goal_classifier_params_directory=None,
             save_full_state=False,
             save_eval_paths=False,
             **kwargs,
@@ -109,13 +109,13 @@ class SAC(RLAlgorithm):
 
         self._save_full_state = save_full_state
         self._save_eval_paths = save_eval_paths
-
+        self._goal_classifier_params_directory = goal_classifier_params_directory
         self._build()
 
     def _build(self):
         super(SAC, self)._build()
-        if goal_classifier_params_direc:
-            self._load_goal_classifier(goal_classifier_params_direc)
+        if self._goal_classifier_params_directory:
+            self._load_goal_classifier(self._goal_classifier_params_directory)
         else:
             self._goal_classifier = None
 
@@ -123,17 +123,17 @@ class SAC(RLAlgorithm):
         self._init_critic_update()
         self._init_diagnostics_ops()
 
-    def _load_goal_classifier(self, goal_classifier_params_direc):
+    def _load_goal_classifier(self, goal_classifier_params_directory):
         import sys
         from goal_classifier.conv import CNN
         from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
-        # print_tensors_in_checkpoint_file(goal_classifier_params_direc, all_tensors=False, tensor_name='')
+        # print_tensors_in_checkpoint_file(goal_classifier_params_directory, all_tensors=False, tensor_name='')
         self._goal_classifier = CNN(goal_cond=True)
         variables = self._goal_classifier.get_variables()
         cnn_vars = [v for v in tf.trainable_variables() if v.name.split('/')[0] == 'goal_classifier']
         saver = tf.train.Saver(cnn_vars)
-        saver.restore(self._session, goal_classifier_params_direc)
+        saver.restore(self._session, goal_classifier_params_directory)
 
     def _classify_as_goals(self, images, goals):
         # NOTE: we can choose any goals we want.
@@ -363,9 +363,9 @@ class SAC(RLAlgorithm):
                 goals = np.arctan2(goal_sin, goal_cos)
             else:
                 images = batch['observations'][:, :32*32*3].reshape((-1, 32, 32, 3))
-            feed_dict[self._rewards_ph] = self._classify_as_goals(images, goals)
+            feed_dict[self._placeholders['rewards']] = self._classify_as_goals(images, goals)
         else:
-            feed_dict[self._rewards_ph] = batch['rewards']
+            feed_dict[self._placeholders['rewards']] = batch['rewards']
 
         if iteration is not None:
             feed_dict[self._placeholders['iteration']] = iteration
@@ -415,13 +415,6 @@ class SAC(RLAlgorithm):
             'alpha': self._alpha,
             'global_step': self.global_step,
         }
-
-        if self._policy._preprocessor.__class__.__name__ == 'VAEPreprocessor':
-            self._diagnostics_ops.update({
-                'vae_loss': self.vae_loss,
-                'vae_kl_loss': self.vae_kl_loss,
-                'vae_reconstruction_loss': self.vae_reconstruction_loss,
-            })
 
         return self._diagnostics_ops
 

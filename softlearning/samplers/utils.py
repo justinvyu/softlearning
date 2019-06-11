@@ -33,8 +33,8 @@ def get_sampler_from_variant(variant, *args, **kwargs):
 
 DEFAULT_PIXEL_RENDER_KWARGS = {
     'mode': 'rgb_array',
-    'width': 100,
-    'height': 100,
+    'width': 256,
+    'height': 256,
 }
 
 DEFAULT_HUMAN_RENDER_KWARGS = {
