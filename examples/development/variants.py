@@ -46,7 +46,7 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'DClaw3': 250,
     'HardwareDClaw3': 100,
     'Pendulum': 200,
-    'Pusher2d': 100,
+    'Pusher2d': 200,
     'InvisibleArm': 250,
 }
 
@@ -209,10 +209,27 @@ ENVIRONMENT_PARAMS = {
         }
     },
     'Pusher2d': {  # 3 DoF
-        'Default-v3': {
-            'arm_object_distance_cost_coeff': 0.0,
-            'goal_object_distance_cost_coeff': 1.0,
+        'Default-v0': {
+            'eef_to_object_distance_cost_coeff': 1.0,
+            'goal_to_object_distance_cost_coeff': 1.0,
+            'ctrl_cost_coeff': 0.0,
             'goal': (0, -1),
+            'puck_initial_x_range': (0, 1),
+            'puck_initial_y_range': (-1, -0.5),
+            'goal_x_range': (-1, 0),
+            'goal_y_range': (-1, 1),
+            'num_goals': 2,
+            'swap_goal_upon_completion': True,
+            'reset_free': True,
+            # 'pixel_wrapper_kwargs': {
+            #     # 'observation_key': 'pixels',
+            #     # 'pixels_only': True,
+            #     'render_kwargs': {
+            #         'width': 32,
+            #         'height': 32,
+            #         'camera_id': -1,
+            #     },
+            # },
         },
         'DefaultReach-v0': {
             'arm_goal_distance_cost_coeff': 1.0,
