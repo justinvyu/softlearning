@@ -13,7 +13,6 @@ from tensorflow.python.training import training_util
 from softlearning.samplers import rollouts
 from softlearning.misc.utils import save_video
 
-
 if LooseVersion(tf.__version__) > LooseVersion("2.00"):
     from tensorflow.python.training.tracking.tracking import (
         AutoTrackable as Checkpointable)

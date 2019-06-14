@@ -16,12 +16,18 @@ def create_SQL_algorithm(variant, *args, **kwargs):
 
     return algorithm
 
+def create_VICE_algorithm(variant, *args, **kwargs):
+    from .vice import VICE
+
+    algorithm = VICE(*args, **kwargs)
+
+    return algorithm
 
 ALGORITHM_CLASSES = {
     'SAC': create_SAC_algorithm,
     'SQL': create_SQL_algorithm,
+    'VICE': create_VICE_algorithm,
 }
-
 
 def get_algorithm_from_variant(variant,
                                *args,
