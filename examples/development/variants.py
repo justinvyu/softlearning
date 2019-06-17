@@ -396,7 +396,7 @@ ENVIRONMENT_PARAMS = {
             'target_x_range': [-0.1, 0.1],
             'target_y_range': [-0.1, 0.1],
             'target_z_rotation_range': [-np.pi, np.pi],
-            'num_goals': tune.grid_search([1,2,4,8])
+            # 'num_goals': tune.grid_search([1,2,4,8])
         }
     },
     'ball_in_cup': {
