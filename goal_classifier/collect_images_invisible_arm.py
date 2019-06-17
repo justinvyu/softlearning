@@ -62,7 +62,7 @@ while num_positives <= TOTAL_EXAMPLES:
             env.step(action)
 
         obs = env._get_image_observation()
-        # env.render()
+        env.render()
 
         rotation_dist = env._get_rotation_distances()["screw"][0]
         print("rotation angle (degrees):", rotation_dist * 180 / np.pi)

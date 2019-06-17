@@ -476,6 +476,23 @@ ENVIRONMENT_PARAMS = {
             'target_y_range': [-0.1, 0.1],
             'target_z_rotation_range': [-np.pi, np.pi],
             'num_goals': tune.grid_search([1,2,4,8])
+        },
+        'ImageFreeFloatManipulation': {
+            'image_shape': (32, 32, 3),
+            'viewer_params': {
+                "azimuth": 90,
+                "elevation": -32, # -27.7,
+                "distance": 0.30,
+                "lookat": np.array([-2.48756381e-18, -2.48756381e-18, 7.32824139e-01])
+            },
+            rotation_only=True,
+            fixed_arm=True,
+            fixed_claw=False,
+            initial_x_range=(0., 0.),
+            initial_y_range=(0., 0.),
+            target_x_range=(0., 0.),
+            target_y_range=(0., 0.),
+            initial_z_rotation_range=(0., 0.),
         }
     },
     'ball_in_cup': {
