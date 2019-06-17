@@ -8,7 +8,7 @@ import tensorflow as tf
 import numpy as np
 from ray import tune
 
-from softlearning.environments.utils import get_goal_example_environment_from_variant
+from softlearning.environments.utils import get_environment_from_params
 from softlearning.algorithms.utils import get_algorithm_from_variant
 from softlearning.policies.utils import get_policy_from_variant, get_policy
 from softlearning.replay_pools.utils import get_replay_pool_from_variant
@@ -27,8 +27,8 @@ class ExperimentRunnerClassifierRL(ExperimentRunner):
 
     def _build(self):
         variant = copy.deepcopy(self._variant)
-
-        env = self.env = get_goal_example_environment_from_variant(variant)
+        print(variant.keys())
+        env = self.env = get_environment_from_params(variant['environment_params']['training'])
         replay_pool = self.replay_pool = (
             get_replay_pool_from_variant(variant, env))
         sampler = self.sampler = get_sampler_from_variant(variant)

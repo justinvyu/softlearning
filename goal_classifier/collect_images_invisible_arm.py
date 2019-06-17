@@ -11,13 +11,13 @@ from robosuite.environments.image_invisible_arm_free_float_manipulation import (
 )
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 
-directory = cur_dir + "/pusher"
+directory = cur_dir + "/invisible_arm/"
 
 if not os.path.exists(directory):
     os.makedirs(directory)
 
-images = True
-image_shape = (64,64,3)
+images = False
+image_shape = (32,32,3)
 
 # Fixed Screw
 # fixed_arm=True,
@@ -31,10 +31,10 @@ image_shape = (64,64,3)
 env = ImageInvisibleArmFreeFloatManipulation(
     image_shape=image_shape,
     viewer_params={
-        "azimuth": 90,
-        "elevation": -27.7,
+        "azimuth": 91.77,
+        "elevation": -30,
         "distance": 0.30,
-        "lookat": np.array([-2.48756381e-18, -2.48756381e-18,  7.32824139e-01])
+        "lookat": np.array([-7.70060451e-04, -1.62471470e-05, 6.85326509e-01])
     },
     rotation_only=True,
     fixed_arm=True,
@@ -69,9 +69,10 @@ while num_positives <= TOTAL_EXAMPLES:
 
         if rotation_dist < 0.1:
             observations.append(obs)
-            image = obs[:np.prod(image_shape)].reshape(image_shape)
-            result = Image.fromarray(image.astype(np.uint8))
-            result.save(directory + '/img%i.jpg' % num_positives)
+            if images:
+                image = obs[:np.prod(image_shape)].reshape(image_shape)
+                result = Image.fromarray(image.astype(np.uint8))
+                result.save(directory + '/img%i.jpg' % num_positives)
             num_positives += 1
         if num_positives % 5 == 0:
             with open(directory + '/positives.pkl', 'wb') as file:
