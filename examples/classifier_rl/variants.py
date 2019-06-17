@@ -2,7 +2,6 @@ from ray import tune
 import numpy as np
 
 from softlearning.misc.utils import get_git_rev, deep_update
-from softlearning.misc.generate_goal_examples import DOOR_TASKS, PUSH_TASKS, PICK_TASKS
 
 M = 256
 REPARAMETERIZE = True
@@ -342,7 +341,12 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm):
         'universe': universe,
         'git_sha': get_git_rev(),
 
-        'env_params': ENVIRONMENT_PARAMS.get(domain, {}).get(task, {}),
+        'env_params': {
+            'domain': domain,
+            'task': task,
+            'universe': universe,
+            'kwargs': ENVIRONMENT_PARAMS.get(domain, {}).get(task, {}),
+        },
         'policy_params': deep_update(
             POLICY_PARAMS_BASE[policy],
             POLICY_PARAMS_FOR_DOMAIN[policy].get(domain, {})
@@ -410,13 +414,7 @@ def get_variant_spec_classifier(universe,
 
     if algorithm in ['RAQ', 'VICERAQ']:
 
-        if task in DOOR_TASKS:
-            is_goal_key = 'angle_success'
-        elif task in PUSH_TASKS:
-            is_goal_key = 'puck_success'
-        elif task in PICK_TASKS:
-            is_goal_key = 'obj_success'
-        elif 'ScrewV2' in task:
+        if 'ScrewV2' in task:
             is_goal_key = 'is_goal'
         else:
             raise NotImplementedError('Success metric not defined for task')
@@ -481,7 +479,7 @@ def get_variant_spec(args):
         #         'dense_hidden_layer_sizes': (),
         #     },
         # }
-        image_shape = variant_spec['env_params']['image_shape']
+        image_shape = variant_spec['env_params']['kwargs']['image_shape']
         preprocessor_params = tune.grid_search([
         {
             'type': 'convnet_preprocessor',

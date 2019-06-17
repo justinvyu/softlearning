@@ -28,7 +28,7 @@ except ModuleNotFoundError as e:
 UNIVERSES = set(ADAPTERS.keys())
 
 
-def get_envionment(universe, domain, task, environment_params):
+def get_environment(universe, domain, task, environment_params):
     return ADAPTERS[universe](domain, task, **environment_params)
 
 
