@@ -32,7 +32,7 @@ env = ImageInvisibleArmFreeFloatManipulation(
     image_shape=image_shape,
     viewer_params={
         "azimuth": 90,
-        "elevation": -27.7,
+        "elevation": -32, # -27.7,
         "distance": 0.30,
         "lookat": np.array([-2.48756381e-18, -2.48756381e-18,  7.32824139e-01])
     },
@@ -62,18 +62,18 @@ while num_positives <= TOTAL_EXAMPLES:
             env.step(action)
 
         obs = env._get_image_observation()
-        # env.render()
+        env.render()
 
         rotation_dist = env._get_rotation_distances()["screw"][0]
         print("rotation angle (degrees):", rotation_dist * 180 / np.pi)
 
-        if rotation_dist < 0.1:
-            observations.append(obs)
-            image = obs[:np.prod(image_shape)].reshape(image_shape)
-            result = Image.fromarray(image.astype(np.uint8))
-            result.save(directory + '/img%i.jpg' % num_positives)
-            num_positives += 1
-        if num_positives % 5 == 0:
-            with open(directory + '/positives.pkl', 'wb') as file:
-                pickle.dump(np.array(observations), file)
+        # if rotation_dist < 0.1:
+        #     observations.append(obs)
+        #     image = obs[:np.prod(image_shape)].reshape(image_shape)
+        #     result = Image.fromarray(image.astype(np.uint8))
+        #     result.save(directory + '/img%i.jpg' % num_positives)
+        #     num_positives += 1
+        # if num_positives % 5 == 0:
+        #     with open(directory + '/positives.pkl', 'wb') as file:
+        #         pickle.dump(np.array(observations), file)
         t += 1
