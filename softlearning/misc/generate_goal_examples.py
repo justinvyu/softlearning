@@ -5,6 +5,7 @@ from softlearning.environments.utils import get_environment_from_params
 # Add tasks & filepaths here:
 TASK_GOALS = {
     'ImageScrewV2-v0': '/Users/justinvyu/Developer/summer-2019/softlearning-vice/goal_classifier/goal_180_image_True/positives.pkl',
+    'ImageInvisibleArmFreeFloatManipulation': '/home/justinvyu/Developer/softlearning-robosuite-vice/goal_classifier/invisible_arm/positives.pkl'
 }
 
 def get_goal_example_from_variant(variant):
