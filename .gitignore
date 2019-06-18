@@ -126,3 +126,4 @@ MUJOCO_LOG.TXT
 
 .mujoco/
 .vscode/
+goal_classifier/invisible_arm/

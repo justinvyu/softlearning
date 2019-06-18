@@ -12,6 +12,7 @@ def create_feedforward_Q_function(input_shapes,
                                   observation_keys=None,
                                   name='feedforward_Q',
                                   **kwargs):
+    print(input_shapes)
     inputs_flat = create_inputs(input_shapes)
     preprocessors_flat = (
         flatten_input_structure(preprocessors)
@@ -22,7 +23,7 @@ def create_feedforward_Q_function(input_shapes,
         inputs_flat, preprocessors_flat)
 
     preprocessed_inputs = [
-        preprocessor(input_) if preprocessor is not None else input_
+        tf.cast(preprocessor(input_), dtype=tf.float32) if preprocessor is not None else tf.cast(input_, dtype=tf.float32)
         for preprocessor, input_
         in zip(preprocessors_flat, inputs_flat)
     ]
